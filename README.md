@@ -14,7 +14,7 @@ Dishboxd is a Letterboxd-style personal food and dining journal. It is for foodi
 | --- | --- | --- |
 | [Node.js](https://nodejs.org/) (includes npm) | 20.19+ or 22.12+ (tested on Node 24.16.0, npm 11.6.2) | Running the frontend and backend |
 | [Git](https://git-scm.com/) | Any recent version | Cloning the repository |
-| [PostgreSQL](https://www.postgresql.org/download/) | 14+ | **Not needed yet.** The database is not connected in Week 1. |
+| [PostgreSQL](https://www.postgresql.org/download/) | 14+ | **Not needed yet.** The database is not connected yet. |
 
 ### Get the code
 
@@ -100,7 +100,7 @@ npm run dev
 
 Vite prints a local address, usually <http://localhost:5173>. Open it in your browser.
 
-**What you should see:** **The Log**, on ruled notebook paper, with coloured index tabs down the left (`HOME`, `SEARCH`, `TRAY`) and a list of recent visits, each with a red rating circle, restaurant name, total and dishes. On a phone-sized window the tabs move to a bottom bar.
+**What you should see:** **The Log**, on ruled notebook paper, with coloured index tabs down the left (`HOME`, `SEARCH`, `TRAY`). It starts empty, with the message "No entries yet. Use + New entry to log your first visit." Once you log visits, each one appears with a red rating circle, the restaurant name, the total and the dishes. On a phone-sized window the tabs move to a bottom bar.
 
 To stop either server, press `Ctrl + C` in its terminal.
 
