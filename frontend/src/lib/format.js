@@ -1,0 +1,40 @@
+// Small helpers for showing numbers and dates the same way on every screen.
+
+export function formatMoney(amount) {
+  return `$${Number(amount || 0).toFixed(2)}`
+}
+
+export function formatRating(rating, decimals = 1) {
+  return Number(rating || 0).toFixed(decimals)
+}
+
+// Dates are stored as "YYYY-MM-DD". Build the Date from its parts so it
+// is not shifted by the time zone (new Date("2026-09-21") would be UTC).
+function toLocalDate(isoDate) {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export function formatDate(isoDate) {
+  return toLocalDate(isoDate).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+export function formatMonth(date = new Date()) {
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+export function todayIso() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+// R-014 on the profile, R14 on the small search badge
+export function restaurantCode(number, short = false) {
+  return short ? `R${String(number).padStart(2, '0')}` : `R-${String(number).padStart(3, '0')}`
+}

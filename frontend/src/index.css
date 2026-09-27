@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* Design tokens: every color, font and texture in the app comes from here.
+   Text colors were checked against WCAG AA (4.5:1) on the paper background. */
+@theme {
+  --font-serif: "Fraunces Variable", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Neutrals: notebook paper and card stock */
+  --color-paper: #fffef8;
+  --color-rule: #e7e9d8;
+  --color-sidebar: #f1e7d3;
+  --color-card: #fffefa;
+  --color-card-edge: #e9e0bd;
+  --color-badge: #f1e8cf;
+  --color-line: #d9d4bc;
+
+  /* Text */
+  --color-ink: #2b2823;
+  --color-muted: #6b6656;
+  --color-faint: #78735f;
+
+  /* Brand red (primary), slate blue (secondary), orange (accent) */
+  --color-brand: #8c2f2f;
+  --color-brand-dark: #6f2424;
+  --color-accent: #4e6887;
+  --color-accent-dark: #3e5470;
+  --color-tray: #ffa25c;
+
+  /* Card catalog box colors */
+  --color-box-orange: #ffb366;
+  --color-box-mint: #c6efc0;
+  --color-box-lavender: #b6a9ff;
+  --color-box-pink: #ffa3a3;
+  --color-box-plum: #8e3f96;
+}
+
+@layer base {
+  body {
+    @apply bg-paper font-mono text-ink antialiased;
+  }
+}
+
+/* Ruled notebook paper behind every page (a line every 30px) */
+@utility bg-lined {
+  background-color: var(--color-paper);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 29px,
+    var(--color-rule) 29px 30px
+  );
+}
+
+/* Tighter ruled lines for the notes area on the ticket */
+@utility bg-notes {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 23px,
+    var(--color-line) 23px 24px
+  );
+  line-height: 24px;
+}
+
+/* Dotted line that joins a name to its price, like a menu */
+@utility leader {
+  flex: 1 1 0%;
+  min-width: 1.5rem;
+  border-bottom: 1px dotted var(--color-muted);
+}
+
+/* Striped placeholder until real photos come from Google Places */
+@utility photo-stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #dcdcdc 0 10px,
+    #e9e9e9 10px 20px
+  );
+}
+
+/* Card catalog box and "Box open" tab shape: narrower at the top */
+@utility clip-trapezoid {
+  clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%);
+}
+
+/* Hide the up/down arrows on price inputs so they read like a receipt */
+@utility no-spinner {
+  appearance: textfield;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}

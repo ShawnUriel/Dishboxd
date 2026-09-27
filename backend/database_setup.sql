@@ -1,10 +1,10 @@
 -- Dishboxd table setup
 -- Not run yet: the database is not connected to the app in Week 1.
--- No seed data here on purpose. Any sample rows added later must be made up, not real people.
+-- No seed data here on purpose: the app starts empty. Any sample rows added later must be made up, not real people.
 
 CREATE TABLE restaurants (
   restaurant_id     SERIAL PRIMARY KEY,
-  google_place_id   TEXT UNIQUE NOT NULL,
+  google_place_id   TEXT UNIQUE,          -- NULL when added by hand (not on Google Maps)
   name              TEXT NOT NULL,
   formatted_address TEXT,
   google_photo_url  TEXT,

@@ -4,7 +4,7 @@
 
 Dishboxd is a Letterboxd-style personal food and dining journal. It is for foodies, cafe hoppers and local diners who want a visual diary of everywhere they have eaten and the specific dishes they liked across town. Instead of writing public reviews, it solves the problem of remembering exactly what you ordered, and whether you liked it, at each restaurant.
 
-**Current stage: Week 1 foundation.** The app is a working skeleton: three placeholder pages connected by navigation, and a backend with one test endpoint. There is no database connection or styling yet (see section 7).
+**Current stage: styled UI with working forms.** All six screens from the design are built and styled (the Log, Card Catalog search, the entry ticket, restaurant profiles, boxes, and an open box). The app starts empty, and you fill it yourself by logging visits and making boxes. Entries are kept in the browser's memory until the PostgreSQL database and Google Places are connected (see section 7).
 
 ## 2. Setup and installation
 
@@ -29,7 +29,7 @@ The frontend and backend each have their own `package.json`, so install both:
 
 ```bash
 cd frontend
-npm install        # React, React Router, Vite
+npm install        # React, React Router, Vite, Tailwind CSS, fonts
 cd ../backend
 npm install        # Express, cors, dotenv
 ```
@@ -53,7 +53,7 @@ cp .env.example .env
 | `DB_PASSWORD` | `your_postgres_password` | PostgreSQL password | Not yet |
 | `GOOGLE_PLACES_API_KEY` | `your_api_key_here` | Google Places API key for restaurant search | Not yet |
 
-The frontend has one optional variable, `VITE_API_URL` (default `http://localhost:5000`). Set it in `frontend/.env` only if your backend runs somewhere else.
+The frontend needs no environment variables yet.
 
 With the defaults, the app runs even without a `.env` file.
 
@@ -66,11 +66,11 @@ createdb dishboxd
 psql -d dishboxd -f backend/database_setup.sql
 ```
 
-There is no seed data yet.
+There is no seed data: the app and the database both start empty. `google_place_id` is optional, so restaurants that are not on Google Maps can still be saved.
 
 ## 3. How to run it
 
-Start the backend and the frontend in **two separate terminals**.
+Start the backend and the frontend in **two separate terminals**. (The UI does not call the backend yet, so the frontend alone is enough to click through the screens.)
 
 **Terminal 1 — backend**
 
@@ -100,28 +100,43 @@ npm run dev
 
 Vite prints a local address, usually <http://localhost:5173>. Open it in your browser.
 
-**What you should see:** a plain white page with a navigation bar (`Home | Search | Visit Form`), the heading **Dishboxd**, and the line **"Backend status: Dishboxd backend is working!"**. If that line says **"Backend not reachable"**, the backend in Terminal 1 is not running.
+**What you should see:** **The Log**, on ruled notebook paper, with coloured index tabs down the left (`HOME`, `SEARCH`, `TRAY`) and a list of recent visits, each with a red rating circle, restaurant name, total and dishes. On a phone-sized window the tabs move to a bottom bar.
 
 To stop either server, press `Ctrl + C` in its terminal.
 
 ## 4. Features and usage
 
-The app is a skeleton right now. Here is what works:
+The app starts empty. Everything you add (restaurants, visits, boxes) stays until you refresh the page, because nothing is saved to the database yet.
 
-### Primary flow
+### Primary flow: log a visit
 
-1. Open <http://localhost:5173>. The **Home** page loads and calls the backend once to show its status.
-2. Click **Search** in the navigation bar to go to `/search`, the placeholder for restaurant discovery (Google Places search goes here later).
-3. Click **Visit Form** to go to `/log/new`, the placeholder for logging a visit and its dishes.
-4. Click **Home** to go back. Every page has the same navigation bar, so there are no dead ends.
+1. On **The Log** (`/`), click **+ NEW ENTRY**.
+2. On **Card Catalog** (`/search`), type the restaurant's name in the search slip.
+   - Restaurants you have already logged show as **ON FILE**, and clicking one opens its record.
+   - For a new name, a **NEW** card offers to add it yourself, with an optional street address. This is for places that are not on Google Maps. Click **START TICKET**. If the name exactly matches one already on file, only the ON FILE card is shown, so you do not add it twice.
+3. On the **Dishboxd Ticket** (`/log/new`), pick a star rating, type each dish and its price (use **+ add line item** for more), and add notes. The total adds itself up. Click **STAMP & SUBMIT**. If the rating or dishes are missing, the ticket says what to fix.
+4. You land on the restaurant's profile (`/restaurant/:id`), with the new visit in **Visit history**. Its **+ NEW ENTRY** stamp logs another visit at the same restaurant.
+5. Click **+ FILE IN A BOX** to add the restaurant to a box. Make boxes first in the **TRAY** tab (`/lists`) with **New box**.
 
 ### Pages
 
-| Route | Page | Current state |
+| Route | Page | What it shows |
 | --- | --- | --- |
-| `/` | Home | Heading, placeholder text and live backend status |
-| `/search` | Search | Placeholder text |
-| `/log/new` | Visit Form | Placeholder text |
+| `/` | The Log | Recent visits (newest first), **+ NEW ENTRY**, and a link to your boxes |
+| `/search` | Card Catalog | Search slip, ON FILE restaurants that match, and a NEW card to add a restaurant yourself |
+| `/log/new` | Dishboxd Ticket | Star rating, dish lines with prices, running total and notes. Opening it directly sends you back to Search, because a ticket needs a restaurant. |
+| `/restaurant/:id` | Restaurant profile | Photo, catalog number, average rating, top dishes, visit history, **+ FILE IN A BOX**, **+ NEW ENTRY** |
+| `/lists` | The Card Catalog | Every box as a coloured card, plus **New box** |
+| `/lists/:id` | Box open | The box's title, description, Public/Private stamp and its restaurants |
+| anything else | Nothing on file | A not-found page with a link home |
+
+### Design system
+
+- **Stack:** Tailwind CSS v4. All design tokens (colours, fonts, paper textures) are in `frontend/src/index.css` under `@theme`.
+- **Colours:** brand red `#8c2f2f`, slate blue `#4e6887`, orange `#ffa25c`, on cream paper `#fffef8`. Every text colour was checked against WCAG AA (4.5:1). The grey and blue from the mockups were darkened slightly to pass, and the orange tab and light-coloured boxes use dark text instead of white.
+- **Type:** Fraunces (headings and restaurant names) and IBM Plex Mono (everything else), self-hosted through Fontsource.
+- **Components:** built in atomic layers in `frontend/src/components/` (`atoms/`, `molecules/`, `organisms/`), following my wireframe component tree.
+- **Responsive:** below 768px the side tabs become a bottom tab bar, and the restaurant profile's two columns stack into one.
 
 ### API endpoints
 
@@ -132,9 +147,9 @@ The app is a skeleton right now. Here is what works:
 
 If the server hits an error, it returns `500` with `{"error":"Something went wrong"}` and logs the details only in the backend terminal.
 
-### Planned features (from the wireframes)
+### Not built yet
 
-Logging visits with multiple dishes, per-dish ratings and prices, restaurant profiles with visit history and top dishes, and curated lists ("boxes") of restaurants. None of these are built yet.
+Google Places search (the spot for its results is marked in `SearchAutocomplete.jsx`), real photos, saving to the database, and editing or deleting visits and boxes.
 
 ## 5. Project structure
 
@@ -146,48 +161,53 @@ Dishboxd/
 ├── frontend/                    React app (Vite)
 │   ├── index.html               Page shell that loads the React app
 │   └── src/
-│       ├── main.jsx             Entry point; mounts <App />
-│       ├── App.jsx              React Router setup and the navigation bar
-│       ├── components/          Reusable UI pieces (empty for now)
-│       └── pages/
-│           ├── Home.jsx         Home page and backend status check
-│           ├── Search.jsx       Search placeholder
-│           └── VisitForm.jsx    Visit Form placeholder
-├── backend/                     Express API
-│   ├── server.js                Server setup, CORS, /api/test, error handlers
-│   ├── database_setup.sql       CREATE TABLE commands (not run yet)
-│   └── .env.example             Placeholder environment variables
-└── project/
-    └── SECURITY-CHECKLIST.md    Completed security checklist
+│       ├── main.jsx             Entry point; loads fonts and styles, mounts <App />
+│       ├── App.jsx              Page layout (tabs + ruled paper) and the routes
+│       ├── index.css            Design tokens (@theme) and paper textures
+│       ├── components/
+│       │   ├── atoms/           Button, RatingCircle, StarRating, Stamp, Tag, ...
+│       │   ├── molecules/       VisitLogCard, SearchResultItem, ManualPlaceForm, DishFormRow, ListCard, RestaurantCard
+│       │   └── organisms/       Navbar, VisitLogFeed, SearchAutocomplete, DishEntryList, RestaurantHeader, ListGrid
+│       ├── pages/               Home, Search, VisitForm, RestaurantProfile, Lists, ListDetail, NotFound
+│       ├── state/               JournalProvider + useJournal: restaurants, visits and boxes in memory (starts empty)
+│       └── lib/                 Formatting (money, dates) and stats (totals, averages, top dishes)
+└── backend/                     Express API
+    ├── server.js                Server setup, CORS, /api/test, error handlers
+    ├── database_setup.sql       CREATE TABLE commands (not run yet)
+    └── .env.example             Placeholder environment variables
 ```
 
 ## 6. Screenshots
 
-Screenshots of the app running locally (Home, Search, Visit Form and the `GET /api/test` response, taken 2026-09-23) are in my course workspace repository, `student-6apsi-2203-ShawnUriel`, under `project/screenshots/`, and embedded in `project/Documentation.md` there. There is no styling yet, so the pages are plain white.
+Screenshots are kept in my private course workspace and embedded in `project/Documentation/Documentation.md` there:
+
+- **Styled UI (2026-09-27), in `project/Documentation/ui-screenshots/`:** the empty starting Log, then each screen after adding entries through the forms: Card Catalog with the "add it yourself" card, the ticket, a restaurant profile, the Log, the boxes, and an open box. Also the search, ticket and restaurant profile at phone width.
+- **Week 1 skeleton (2026-09-23), in `project/Documentation/`:** the unstyled placeholder pages, the `GET /api/test` response, and the security-check evidence.
 
 ## 7. Known issues and next steps
 
-Being honest: almost everything is still left to do.
+The screens and forms work, but nothing is saved yet.
 
 **Known issues**
 
-- **The database is not connected.** `backend/database_setup.sql` has not been run, and nothing is saved anywhere.
-- **There is no styling.** Every page is plain HTML text on a white background, nothing like the wireframes yet.
-- **The pages are placeholders.** Search and Visit Form have no inputs or behavior.
+- **A refresh clears everything.** Entries live in the browser's memory. `backend/database_setup.sql` has still not been run.
+- **No Google Places yet.** Search only finds restaurants you have already logged, so every new restaurant is added by hand for now.
+- **Photos are striped placeholders.**
+- **No edit or delete** for visits, boxes or the Public/Private setting.
+- **The third tab says "TRAY"**, but my mockups call it "TRAY" on some screens and "BOXES" on others. I picked TRAY for now.
 - **There is no access layer** (login or password gate). This is required before the app is deployed (security checklist row 18).
 - **Invalid JSON returns `500` instead of `400`.** It still leaks no details, but the status code is wrong.
 
 **Next steps**
 
-1. Build a small separate test file that fetches data from the Google Places API, before wiring it into the Search page.
+1. Build a small separate test file that fetches data from the Google Places API, then show its results in the Search page. When a typed name exactly matches a Google place, file that exact restaurant (with its place ID and address). Keep the "add it yourself" card for places Google does not know. Call Google from the backend so `GOOGLE_PLACES_API_KEY` stays in `backend/.env` and never reaches the browser.
 2. Create the PostgreSQL database from `database_setup.sql` and connect it with parameterized queries.
-3. Build the Visit Form (visit fields plus a repeating list of dishes).
-4. Turn the wireframes into a design system (palette, type, spacing tokens) and style the pages.
-5. Add an access layer before deploying.
+3. Add API routes for visits, restaurants and boxes, validate their input on the server, and swap `JournalProvider`'s in-memory state for real requests.
+4. Add an access layer before deploying.
 
 ## Security checklist
 
-The completed checklist is in [`project/SECURITY-CHECKLIST.md`](project/SECURITY-CHECKLIST.md). Every row is answered Yes, No or N/A with evidence. Evidence screenshots `05`–`10` are in my workspace repository under `project/screenshots/`. The one open **No** is row 18 (there is no access layer yet).
+The completed security checklist is kept in my private course workspace at `project/SECURITY-CHECKLIST.md`, as the course asks, with its evidence screenshots next to it. Every row is answered Yes, No or N/A with evidence. Row 18 is still **No**, because there is no access layer yet.
 
 ## AI usage
 
