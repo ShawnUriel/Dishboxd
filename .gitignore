@@ -18,3 +18,4 @@ dist-ssr/
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+.neon

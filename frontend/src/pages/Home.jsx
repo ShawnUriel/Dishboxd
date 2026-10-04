@@ -1,15 +1,24 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Stamp from '../components/atoms/Stamp.jsx'
 import VisitLogFeed from '../components/organisms/VisitLogFeed.jsx'
+import { authCall, authClient } from '../lib/auth.js'
 import { formatMonth } from '../lib/format.js'
 import { newestFirst } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
 
 // "The Log": most recent visits, newest first.
 export default function Home() {
+  const navigate = useNavigate()
+  const { data: session } = authClient.useSession()
   const { visits, restaurants } = useJournal()
   const restaurantsById = new Map(restaurants.map((restaurant) => [restaurant.id, restaurant]))
   const recent = [...visits].sort(newestFirst).slice(0, 10)
+  const user = session?.user
+
+  async function handleLogOut() {
+    await authCall(() => authClient.signOut())
+    navigate('/login', { replace: true })
+  }
 
   return (
     <>
@@ -19,6 +28,18 @@ export default function Home() {
           <p className="mt-1 font-mono text-sm uppercase tracking-widest text-muted">
             {formatMonth()} — Recent entries
           </p>
+          {user && (
+            <p className="mt-2 font-mono text-sm text-muted">
+              Signed in as <span className="text-ink">{user.name || user.email}</span> ·{' '}
+              <button
+                type="button"
+                onClick={handleLogOut}
+                className="text-accent underline hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                Log out
+              </button>
+            </p>
+          )}
         </div>
         <Link
           to="/search"
