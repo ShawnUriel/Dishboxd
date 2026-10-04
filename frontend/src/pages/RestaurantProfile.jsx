@@ -41,7 +41,7 @@ export default function RestaurantProfile() {
   return (
     <div className="md:grid md:min-h-[calc(100vh-6rem)] md:grid-cols-[minmax(0,24rem)_1fr]">
       <aside className="flex flex-col md:border-r md:border-dashed md:border-line md:pr-10">
-        <RestaurantHeader restaurant={restaurant} rating={averageRating(history)} />
+        <RestaurantHeader restaurant={restaurant} rating={averageRating(history)} photoId={history.find((visit) => visit.photoIds?.length)?.photoIds[0]} />
 
         <hr className="my-6 border-dashed border-line" />
         <SectionLabel>Top dishes</SectionLabel>

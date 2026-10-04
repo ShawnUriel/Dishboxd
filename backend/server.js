@@ -19,6 +19,8 @@ const { router: restaurantsRouter } = require('./routes/restaurants')
 const { router: visitsRouter } = require('./routes/visits')
 const { router: boxesRouter } = require('./routes/boxes')
 const { router: placesRouter } = require('./routes/places')
+const { router: profilesRouter } = require('./routes/profiles')
+const { router: mediaRouter } = require('./routes/media')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -38,6 +40,8 @@ app.use('/api/restaurants', requireUser, restaurantsRouter)
 app.use('/api/visits', requireUser, visitsRouter)
 app.use('/api/boxes', requireUser, boxesRouter)
 app.use('/api/places', requireUser, placesRouter)
+app.use('/api/profiles', requireUser, profilesRouter)
+app.use('/api/media', requireUser, mediaRouter)
 
 // Unknown routes get a plain 404 instead of Express's default HTML page
 app.use((req, res) => {

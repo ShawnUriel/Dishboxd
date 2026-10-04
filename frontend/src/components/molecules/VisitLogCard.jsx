@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import Leader from '../atoms/Leader.jsx'
 import RatingCircle from '../atoms/RatingCircle.jsx'
+import Photo from '../atoms/Photo.jsx'
 import { formatDate, formatMoney } from '../../lib/format.js'
 import { visitTotal } from '../../lib/stats.js'
 
@@ -30,6 +31,21 @@ export default function VisitLogCard({ visit, restaurant }) {
           <span className="font-mono text-sm text-muted">{formatMoney(visitTotal(visit))}</span>
         </div>
         <p className="mt-1 font-mono text-sm text-muted">{meta.join(' · ')}</p>
+        {visit.notes && (
+          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{visit.notes}</p>
+        )}
+        {visit.photoIds?.length > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {visit.photoIds.map((id, index) => (
+              <Photo
+                key={id}
+                id={id}
+                alt={`Photo from the visit, ${index + 1}`}
+                className="aspect-[4/3] w-full rounded-md"
+              />
+            ))}
+          </div>
+        )}
       </div>
     </li>
   )

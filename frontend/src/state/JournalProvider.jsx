@@ -39,11 +39,11 @@ export function JournalProvider({ children }) {
   // Saves one ticket. A known restaurant is sent by id; a NEW one (from search,
   // or added by hand) is sent as a place for the server to file.
   // Returns the restaurant id so the caller can open its profile.
-  async function addVisit(place, { date, rating, notes, dishes }) {
+  async function addVisit(place, { date, rating, notes, dishes, photoIds = [], isPublic = false }) {
     const where = place.restaurantId
       ? { restaurantId: place.restaurantId }
       : { place: { placeId: place.placeId ?? null, name: place.name, address: place.address ?? '' } }
-    const saved = await api('/api/visits', { method: 'POST', body: { ...where, date, rating, notes, dishes } })
+    const saved = await api('/api/visits', { method: 'POST', body: { ...where, date, rating, notes, dishes, photoIds, isPublic } })
 
     setJournal((current) => ({
       ...current,
@@ -59,6 +59,11 @@ export function JournalProvider({ children }) {
     const { box } = await api('/api/boxes', { method: 'POST', body: { title } })
     setJournal((current) => ({ ...current, boxes: [...current.boxes, box] }))
     return box.id
+  }
+
+  async function shareVisit(id, isPublic) {
+    await api(`/api/visits/${id}`, { method: 'PATCH', body: { isPublic } })
+    setJournal((current) => ({ ...current, visits: current.visits.map((visit) => visit.id === id ? { ...visit, isPublic } : visit) }))
   }
 
   async function addToBox(boxId, restaurantId) {
@@ -99,6 +104,6 @@ export function JournalProvider({ children }) {
     )
   }
 
-  const value = { ...journal, addVisit, addBox, addToBox }
+  const value = { ...journal, addVisit, addBox, addToBox, shareVisit }
   return <JournalContext.Provider value={value}>{children}</JournalContext.Provider>
 }

@@ -12,6 +12,8 @@ import Search from './pages/Search.jsx'
 import SignUp from './pages/SignUp.jsx'
 import VerifyEmail from './pages/VerifyEmail.jsx'
 import VisitForm from './pages/VisitForm.jsx'
+import Profile from './pages/Profile.jsx'
+import People from './pages/People.jsx'
 
 // Start each new page at the top instead of keeping the old scroll position
 function ScrollToTop() {
@@ -35,7 +37,7 @@ function JournalLayout() {
       <div className="min-h-screen md:flex">
         <Navbar />
         <main id="main" className="bg-lined min-h-screen min-w-0 flex-1 pb-24 md:pb-0">
-          <div className="max-w-[90rem] px-4 pt-8 pb-12 md:px-15 md:pt-11">
+          <div className="mx-auto max-w-[82rem] px-4 pt-6 pb-12 sm:px-8 md:px-10 md:pt-9 lg:px-12">
             <Outlet />
           </div>
         </main>
@@ -63,6 +65,9 @@ function App() {
             <Route path="/restaurant/:id" element={<RestaurantProfile />} />
             <Route path="/lists" element={<Lists />} />
             <Route path="/lists/:id" element={<ListDetail />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:id" element={<Profile />} />
+            <Route path="/people" element={<People />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>

@@ -25,7 +25,7 @@ async function loginToken() {
 
 // Call the Dishboxd API as the logged-in user. Returns the JSON body, or throws an
 // ApiError whose message can be shown to the user as-is.
-export async function api(path, { method = 'GET', body } = {}) {
+export async function api(path, { method = 'GET', body, signal, binary = false } = {}) {
   const token = await loginToken()
   if (!token) throw new ApiError('Your session has expired. Log in again.', 401)
 
@@ -35,14 +35,19 @@ export async function api(path, { method = 'GET', body } = {}) {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined
+          ? {}
+          : { 'Content-Type': body instanceof Blob ? body.type : 'application/json' }),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : body instanceof Blob ? body : JSON.stringify(body),
+      signal,
     })
-  } catch {
+  } catch (error) {
+    if (error.name === 'AbortError') throw error
     throw new ApiError('Could not reach the Dishboxd server. Is the backend running?', 0)
   }
 
+  if (binary && response.ok) return response.blob()
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new ApiError(data.error || `Request failed (${response.status}).`, response.status)
   return data

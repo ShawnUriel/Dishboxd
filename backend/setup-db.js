@@ -3,11 +3,11 @@
 require('dotenv').config({ quiet: true })
 const fs = require('node:fs')
 const path = require('node:path')
-const { pool } = require('./db')
+const { pool, transaction } = require('./db')
 
 async function main() {
   const sql = fs.readFileSync(path.join(__dirname, 'database_setup.sql'), 'utf8')
-  await pool.query(sql)
+  await transaction((client) => client.query(sql))
   const { rows } = await pool.query(
     `SELECT table_name FROM information_schema.tables
      WHERE table_schema = 'public' ORDER BY table_name`,

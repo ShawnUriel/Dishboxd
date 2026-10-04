@@ -39,6 +39,30 @@
   body {
     @apply bg-paper font-mono text-ink antialiased;
   }
+  button:not(:disabled), a, summary { cursor: pointer; }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 4px;
+  }
+}
+
+/* Paper layers and restrained movement keep the original card-catalog character. */
+.paper-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-card-edge);
+  border-radius: 12px;
+  box-shadow: 0 3px 0 #e9e0bd70, 0 8px 24px #2b282306;
+}
+.paper-lift { transition: transform 180ms ease, box-shadow 180ms ease; }
+.paper-lift:hover { transform: translateY(-3px); box-shadow: 0 8px 24px #2b282312; }
+.page-enter { animation: page-enter 420ms ease both; }
+.stagger > * { animation: page-enter 420ms ease both; }
+.stagger > :nth-child(2) { animation-delay: 65ms; }
+.stagger > :nth-child(3) { animation-delay: 130ms; }
+.stagger > :nth-child(4) { animation-delay: 195ms; }
+@keyframes page-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
 /* Ruled notebook paper behind every page (a line every 30px) */

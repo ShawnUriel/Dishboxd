@@ -73,3 +73,34 @@ CREATE INDEX IF NOT EXISTS visit_logs_user_date_idx ON visit_logs (user_id, visi
 CREATE INDEX IF NOT EXISTS visit_logs_restaurant_idx ON visit_logs (restaurant_id);
 CREATE INDEX IF NOT EXISTS boxes_user_idx ON boxes (user_id, created_at);
 CREATE INDEX IF NOT EXISTS box_restaurants_user_idx ON box_restaurants (user_id);
+
+-- Additive social migration: old reviews stay private.
+ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS media (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  visit_id UUID REFERENCES visit_logs(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('avatar', 'review')),
+  data BYTEA NOT NULL CHECK (octet_length(data) BETWEEN 4 AND 750000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id UUID PRIMARY KEY REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  handle TEXT NOT NULL UNIQUE CHECK (handle ~ '^[a-z0-9_]{3,30}$'),
+  display_name TEXT NOT NULL CHECK (length(display_name) BETWEEN 1 AND 60),
+  bio TEXT NOT NULL DEFAULT '' CHECK (length(bio) <= 280),
+  avatar_id UUID REFERENCES media(id) ON DELETE SET NULL,
+  top_pick_ids UUID[] NOT NULL DEFAULT '{}' CHECK (cardinality(top_pick_ids) <= 4),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS follows (
+  follower_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  following_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (follower_id, following_id),
+  CHECK (follower_id <> following_id)
+);
+CREATE INDEX IF NOT EXISTS follows_following_idx ON follows (following_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS media_user_idx ON media (user_id);
+CREATE INDEX IF NOT EXISTS media_visit_idx ON media (visit_id);
+CREATE INDEX IF NOT EXISTS visits_public_idx ON visit_logs (user_id, created_at DESC) WHERE is_public;

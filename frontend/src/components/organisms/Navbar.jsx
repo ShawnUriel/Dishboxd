@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { FolderIcon, HomeIcon, SearchIcon } from '../atoms/Icon.jsx'
+import { FolderIcon, HomeIcon, SearchIcon, UserIcon } from '../atoms/Icon.jsx'
 
 // Orange tab uses dark text: white on orange fails the 4.5:1 contrast check.
 const tabs = [
   { to: '/', label: 'Home', Icon: HomeIcon, color: 'bg-brand text-white', end: true },
   { to: '/search', label: 'Search', Icon: SearchIcon, color: 'bg-accent text-white' },
   { to: '/lists', label: 'Tray', Icon: FolderIcon, color: 'bg-tray text-ink' },
+  { to: '/profile', label: 'Profile', Icon: UserIcon, color: 'bg-box-mint text-ink' },
 ]
 
 // Index-card tabs down the left edge; on a phone they become a bottom tab bar.
