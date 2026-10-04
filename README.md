@@ -316,4 +316,4 @@ The completed security checklist is kept in my private course workspace at `proj
 
 Claude Code (Anthropic's AI coding assistant) wrote most of the code in this project, and an AI chat tool helped me debug CORS in Week 1. What I asked for, what I kept or changed, where the AI got it wrong, and which code is mine are logged in [`AI-USAGE.md`](AI-USAGE.md).
 
-**Credit:** Claude Code generated most of the application code, an AI chat assistant helped debug CORS, and ChatGPT helped review the AI usage documentation. Decisions, corrections and contribution evidence are recorded in [`AI-USAGE.md`](AI-USAGE.md).
+**Credit:** Claude Code generated most of the frontend and backend code. I manually set up the external APIs and deployment and researched problems its troubleshooting did not resolve. An AI chat assistant helped debug CORS, and ChatGPT helped review the AI usage documentation. See [`AI-USAGE.md`](AI-USAGE.md) for decisions, corrections and contribution evidence.
