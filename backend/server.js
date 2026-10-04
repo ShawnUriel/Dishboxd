@@ -1,6 +1,19 @@
 require('dotenv').config({ quiet: true })
 const express = require('express')
 const cors = require('cors')
+
+// Check the required settings before anything uses them, and log what is wrong. On Vercel a
+// crash while the server loads can be retried and then reported as an unrelated Express error
+// ("argument handler must be a function"), so the real reason has to reach the log first.
+for (const name of ['DATABASE_URL', 'NEON_AUTH_URL']) {
+  const value = process.env[name]
+  if (!value || !URL.canParse(value)) {
+    const problem = `${name} is ${value ? 'not a valid URL (check for quotes or spaces around it)' : 'missing'}. Set it in backend/.env, or in the Vercel project's environment variables.`
+    console.error(problem)
+    throw new Error(problem)
+  }
+}
+
 const { requireUser } = require('./auth')
 const { router: restaurantsRouter } = require('./routes/restaurants')
 const { router: visitsRouter } = require('./routes/visits')
