@@ -83,14 +83,14 @@ cp backend/.env.example backend/.env
 | Variable | Example value | What it does |
 | --- | --- | --- |
 | `VITE_NEON_AUTH_URL` | `https://<endpoint>.neonauth.<region>.aws.neon.tech/neondb/auth` | Your Neon Auth Base URL (from the console or `neon neon-auth status`). It is public, not a secret. |
-| `VITE_API_URL` | `http://localhost:5000` | Where the Express API runs. Defaults to `http://localhost:5000`. |
+| `VITE_API_URL` | `http://localhost:5000` | Where the Express API runs during local development (the default). Leave it out on Vercel: production builds call `/api` on the same site. |
 
 **Backend** (`backend/.env`), required unless a default is given:
 
 | Variable | Example value | What it does |
 | --- | --- | --- |
 | `PORT` | `5000` | Port the Express server listens on. Defaults to `5000`. |
-| `CLIENT_ORIGIN` | `http://localhost:5173` | The only website allowed to call the API (CORS). Defaults to `http://localhost:5173`. |
+| `CLIENT_ORIGIN` | `http://localhost:5173` | The only website allowed to call the API from a browser (CORS). Defaults to `http://localhost:5173`; on Vercel, set it to the site's address. |
 | `DATABASE_URL` | `postgresql://user:password@host/neondb?sslmode=verify-full` | Your Neon connection string (Connect button in the console, or `neon connection-string`). **Secret.** |
 | `NEON_AUTH_URL` | same as `VITE_NEON_AUTH_URL` | Used to check login tokens against Neon Auth's public keys. Not a secret. |
 | `GOOGLE_PLACES_API_KEY` | `your_api_key_here` | Google Places API (New) key for the restaurant search. Optional: while it is missing or still the placeholder, search is limited to restaurants on file and ones you add by hand. **Secret**: it is only used by the backend and never reaches the browser. |
@@ -154,6 +154,16 @@ Vite prints a local address, usually <http://localhost:5173>. Open it in your br
 **What you should see:** the **Log in** page, a ticket-style card on ruled notebook paper. Sign up (see section 4) or continue with Google. After that you reach **The Log**, with coloured index tabs down the left (`HOME`, `SEARCH`, `TRAY`) and "Signed in as … · Log out" under the title. It starts empty, with the message "No entries yet. Use + New entry to log your first visit." Once you log visits, each one appears with a red rating circle, the restaurant name, the total and the dishes. On a phone-sized window the tabs move to a bottom bar.
 
 To stop either server, press `Ctrl + C` in its terminal.
+
+### Deploying to Vercel
+
+Dishboxd deploys as **one Vercel project with two services**, set up in the root `vercel.json`. The `frontend` service serves the React app and the `backend` service runs the Express API. They share one address: every path under `/api/` goes to the backend and every other path goes to the frontend, so the browser calls the API on the same site.
+
+1. In Vercel, choose **Add New → Project** and import the repository. Leave the Root Directory as the repository root; Vercel reads `vercel.json`.
+2. Add the environment variables, which both services share: `DATABASE_URL`, `NEON_AUTH_URL`, `GOOGLE_PLACES_API_KEY`, `GOOGLE_PLACES_REGION`, `VITE_NEON_AUTH_URL`, and `CLIENT_ORIGIN` set to the site's address. Do not set `VITE_API_URL`: production builds call `/api` on the same site.
+3. Deploy, then add the site's address to Neon Auth's trusted domains (`neon neon-auth domain add …`), or login and Google sign-in will not work there.
+
+Only variables whose names start with `VITE_` are built into the browser code, so the secrets stay on the server even though both services can see them.
 
 ## 4. Features and usage
 
@@ -239,11 +249,11 @@ Real photos, sharing a public box by link, and editing or deleting visits and bo
 Dishboxd/
 ├── README.md                    Project documentation (this file)
 ├── AI-USAGE.md                  Log of how AI tools were used in this build
+├── vercel.json                  Vercel services: /api/* goes to the backend, everything else to the frontend
 ├── .gitignore                   Keeps .env, node_modules and build output out of git
 ├── frontend/                    React app (Vite)
 │   ├── index.html               Page shell that loads the React app
 │   ├── .env.example             Placeholders for VITE_NEON_AUTH_URL and VITE_API_URL
-│   ├── vercel.json              On Vercel, sends every page address (e.g. /restaurant/…) to the React app
 │   └── src/
 │       ├── main.jsx             Entry point; loads fonts and styles, mounts <App />
 │       ├── App.jsx              Routes: log-in pages, and the journal pages behind the login check
@@ -296,7 +306,7 @@ Accounts, the screens, the forms and saving to the database all work. It is not 
 
 1. Use the user's own location for Google searches (if they allow it) instead of always Angeles City.
 2. Edit and delete routes (`PATCH`/`DELETE`) for visits and boxes, and a public link for public boxes.
-3. Deploy: frontend and API on Vercel, with the site's address added to Neon Auth's trusted domains. Before a real launch: my own Google OAuth keys and email provider.
+3. Deploy to Vercel as one project with two services (see "Deploying to Vercel" in section 3), with the site's address added to Neon Auth's trusted domains. Before a real launch: my own Google OAuth keys and email provider.
 
 ## Security checklist
 

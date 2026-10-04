@@ -1,6 +1,9 @@
 import { authClient } from './auth.js'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+// Where the Express API runs. On Vercel it shares the site's address (everything under /api
+// goes to the backend), so production builds call it with relative paths like /api/visits.
+// In development it runs on its own port.
+const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:5000' : '')
 
 export class ApiError extends Error {
   constructor(message, status) {
