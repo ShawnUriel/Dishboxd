@@ -11,6 +11,13 @@ const isConfigured = API_KEY !== '' && !API_KEY.startsWith('your_')
 
 const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete'
 
+// Without a location, Google favours places near whoever sends the request, which is this
+// server: fine on my computer, but a data centre once deployed. So searches lean toward
+// Angeles City. A small circle pulls harder: in testing, 5 km gave Angeles branches first,
+// while 50 km (Google's maximum) gave Metro Manila ones. It is a bias, not a limit, so a
+// place farther away still shows up when its name matches.
+const SEARCH_AREA = { circle: { center: { latitude: 15.145, longitude: 120.5887 }, radius: 5000 } }
+
 // Google tags each place with types. Keep only places to eat or drink: "food" covers most,
 // and the rest catch cafes, bars and any "..._restaurant" (filipino_restaurant, fast_food_restaurant...).
 const FOOD_TYPES = new Set(['food', 'restaurant', 'cafe', 'coffee_shop', 'bakery', 'bar', 'meal_takeaway', 'meal_delivery', 'food_court'])
@@ -41,6 +48,7 @@ router.get('/autocomplete', searchLimit, async (req, res) => {
       body: JSON.stringify({
         input: query,
         languageCode: 'en',
+        locationBias: SEARCH_AREA,
         ...(REGION ? { includedRegionCodes: [REGION], regionCode: REGION } : {}),
       }),
       signal: AbortSignal.timeout(5000),

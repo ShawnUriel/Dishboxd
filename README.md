@@ -242,7 +242,8 @@ Dishboxd/
 ├── .gitignore                   Keeps .env, node_modules and build output out of git
 ├── frontend/                    React app (Vite)
 │   ├── index.html               Page shell that loads the React app
-│   ├── .env.example             Placeholder for VITE_NEON_AUTH_URL
+│   ├── .env.example             Placeholders for VITE_NEON_AUTH_URL and VITE_API_URL
+│   ├── vercel.json              On Vercel, sends every page address (e.g. /restaurant/…) to the React app
 │   └── src/
 │       ├── main.jsx             Entry point; loads fonts and styles, mounts <App />
 │       ├── App.jsx              Routes: log-in pages, and the journal pages behind the login check
@@ -283,7 +284,7 @@ Accounts, the screens, the forms and saving to the database all work. It is not 
 - **Neon Auth's JavaScript package is a beta** (`@neondatabase/auth` 0.5), so its API may change. It also makes the app bundle about 630 KB, which Vite warns about.
 - **No "forgot password" page yet.**
 - **Google search misses some places.** Google sends at most five suggestions per search, and Dishboxd hides the ones that are not places to eat (in testing, "SM City Clark" and "Holy Angel University" were hidden correctly). A restaurant that Google files only as a generic "establishment" is hidden too; one Mang Inasal branch was. Google also may not know a name the way you type it ("Starbucks Marquee Mall" found nothing). In those cases the restaurant can still be added by hand.
-- **Search results lean toward the server's location.** Without a location in the request, Google favours places near the computer that asks, which is the backend. Locally that is near you (results were around Angeles); once deployed it is the hosting company's data centre, so results may stop favouring Pampanga.
+- **Search leans toward Angeles City.** Without a location, Google favours places near the computer that asks, which would be the hosting company's data centre once deployed. So every search leans toward a 5 km circle around Angeles City (`SEARCH_AREA` in `backend/routes/places.js`). It is a bias, not a limit: places farther away still show up when their name matches, but someone searching from another city gets Angeles branches first.
 - **No menus from Google.** The Places API does not return menus or dishes, so a Google place links to its Google Maps page instead, and dish suggestions come only from your own past tickets.
 - **Photos are striped placeholders.**
 - **No edit or delete** for visits, boxes or the Public/Private setting. Every box is private for now; the database has an `is_public` column, but nothing sets it yet.
@@ -293,7 +294,7 @@ Accounts, the screens, the forms and saving to the database all work. It is not 
 
 **Next steps**
 
-1. Send a location with Google searches (the user's, if they allow it, or a set area such as Angeles City) so results stay local after deploying.
+1. Use the user's own location for Google searches (if they allow it) instead of always Angeles City.
 2. Edit and delete routes (`PATCH`/`DELETE`) for visits and boxes, and a public link for public boxes.
 3. Deploy: frontend and API on Vercel, with the site's address added to Neon Auth's trusted domains. Before a real launch: my own Google OAuth keys and email provider.
 
