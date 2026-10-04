@@ -2,7 +2,11 @@
 
 I built Dishboxd with a lot of help from AI, mostly **Claude Code** (Anthropic's coding assistant), plus an AI chat tool once in Week 1. Claude Code wrote most of the code in this repository. My part was the idea and the README, the design system and wireframes it built from, the decisions written down below, checking its work in the browser, and catching the times it went the wrong way. Section 3 says which code is mine.
 
-Commit links go to this repository. The links marked *(workspace)* go to my private course workspace, where my documentation and security checklist live.
+Commit links go to this repository. The links marked *(workspace)* go to my private course workspace, where my documentation and security checklist live. Those private links need course-workspace access; they returned 404 during this review, so they have not been independently verified here.
+
+This log began in Week 1, rather than being created only for the final submission: [`52d3086`](https://github.com/ShawnUriel/Dishboxd/commit/52d3086c32b49757dd74c1faf2286262157277f0) introduced it, [`b0ba43a`](https://github.com/ShawnUriel/Dishboxd/commit/b0ba43a44f96b9928d40c6ad6a44c0ab709a96e7) expanded it in Week 2, [`5ee6c58`](https://github.com/ShawnUriel/Dishboxd/commit/5ee6c58a9376208baa23900eebef9c89741dd438) recorded the history cleanup, and [`527c89c`](https://github.com/ShawnUriel/Dishboxd/commit/527c89c00592c8efa5c555fa594a524587b498ca) organised the three badge sections and README credit. The cleanup rewrote history, so the original activity date and a rewritten commit's committer date can differ.
+
+For this update, ChatGPT helped review the existing log against the repository history and clarify the contribution evidence. Earlier prompts, browser checks and test runs below are accounts already recorded in the log, not new tests performed for this documentation update. The full unit lesson and rubric have not been supplied for this review; the checks are against the assignment brief. Section 3 still needs my own code examples and explanations before the required 20% can be established.
 
 ## 1. How I used AI
 
@@ -27,7 +31,7 @@ Commit links go to this repository. The links marked *(workspace)* go to my priv
 **2026-09-27 · Claude Code · Week 2 documentation, report and journal**
 - **What I asked:** to write my Week 2 documentation, project increment report and reflection journal from my templates, with screenshots of the app.
 - **What it gave back:** `Documentation.md`, `report.md` and a Week 2 journal in my workspace, plus the screenshots.
-- **What I kept or changed, and why:** I checked the report against what I had actually built and had the screenshots redone as real image files (section 2, case 3).
+- **What I kept or changed, and why:** I checked the report against what I had actually built and had the screenshots redone as real image files (section 2, case 5).
 - **Commit:** [`1dc13ea`](https://github.com/HAU-6APSI/student-6apsi-2203-ShawnUriel/commit/1dc13ea) *(workspace)*
 
 **2026-09-28 · Claude Code · Cleaning my repository's history**
@@ -45,8 +49,8 @@ Commit links go to this repository. The links marked *(workspace)* go to my priv
 **2026-10-04 · Claude Code · Database and API**
 - **What I asked:** to build the database before deploying.
 - **What it gave back:** five tables owned by Neon Auth users (`npm run db:setup`), and an Express API: `auth.js` checks the login token, `validate.js` checks every input, and `routes/` covers restaurants, visits and boxes with parameterized queries and one transaction per ticket. The React app now loads and saves through the API. It tested more than 30 API cases with two throwaway accounts, including that one user cannot see or change the other's data, plus a browser run with a page reload.
-- **What I kept or changed, and why:** kept. Its tests caught that broken JSON returned a `500` instead of a `400`, which it fixed before I committed.
-- **Commit:** [`1f5e870`](https://github.com/ShawnUriel/Dishboxd/commit/1f5e870)
+- **What I kept or changed, and why:** kept. Its tests caught that broken JSON returned a `500` instead of a `400`, which it fixed before I committed (section 2, case 4). The initial `require('jose')` also needed a later deployment fix to `import('jose')` (section 2, case 3). I count both corrections as problems with the AI-written backend.
+- **Commits:** initial API [`1f5e870`](https://github.com/ShawnUriel/Dishboxd/commit/1f5e8707a7983cd04fc07405d955e12694a55c17), clearer startup configuration errors [`f75061f`](https://github.com/ShawnUriel/Dishboxd/commit/f75061ff755af128fad2a20cf3e3b7349de0de89), module-loading correction [`654fe89`](https://github.com/ShawnUriel/Dishboxd/commit/654fe89203cf49d6ce1281cf9b6859cd175db131)
 
 **2026-10-04 · Claude Code · Google restaurant search and the "food menu"**
 - **What I asked:** to set up the Google API for restaurants and food menus.
@@ -74,7 +78,21 @@ Commit links go to this repository. The links marked *(workspace)* go to my priv
 - **What I did instead:** I explained what I meant: no data yet, but a user can already type, and a restaurant that is not on Google Maps must still be addable. It restored the forms from its backup and added the NEW "add it yourself" card (`ManualPlaceForm.jsx`).
 - **Commit:** [`b0ba43a`](https://github.com/ShawnUriel/Dishboxd/commit/b0ba43a)
 
-**3. Its screenshots did not show up on GitHub.**
+**3. The AI-written authentication module failed during deployment.**
+- **What it gave me:** `backend/auth.js` loaded `jose` using `require('jose')`, although the backend is CommonJS and this version of `jose` is an ES module.
+- **What was wrong:** the original import did not work with the deployed loader. The correction commit records a Vercel startup failure reported as "argument handler must be a function". Working in the local runtime had not established that the same module would load when deployed.
+- **What changed:** the fix loads `jose` with `import('jose')`, creates a shared `verifierReady` promise, and awaits that verifier in `requireUser`. Loading failures are logged and flow to the server error handler; invalid login tokens still return `401`. The configuration-check commit also makes missing or invalid environment URLs easier to diagnose.
+- **Why the correction matters:** a login failure is different from a server startup failure, and local behaviour alone does not establish deployment compatibility. The diff proves the correction; it does not prove that I personally wrote the fix or that a later deployment succeeded.
+- **Commits:** original AI-written module [`1f5e870`](https://github.com/ShawnUriel/Dishboxd/commit/1f5e8707a7983cd04fc07405d955e12694a55c17), configuration diagnostics [`f75061f`](https://github.com/ShawnUriel/Dishboxd/commit/f75061ff755af128fad2a20cf3e3b7349de0de89), corrected module loading [`654fe89`](https://github.com/ShawnUriel/Dishboxd/commit/654fe89203cf49d6ce1281cf9b6859cd175db131)
+
+**4. Invalid JSON was treated as a server failure.**
+- **What it gave me:** an error-handling path that returned `500` when the request body was broken JSON.
+- **What was wrong:** a malformed request is a client error. Returning `500` made it look as though the server had failed and gave the caller the wrong status.
+- **What changed:** `backend/server.js` checks Express's `entity.parse.failed` error and returns `400` with "The request body is not valid JSON." The same handler treats an oversized body as `413` and keeps unexpected errors as a generic `500`.
+- **What caught it:** the AI's API tests caught this before the API commit, as recorded in section 1. I accepted the correction; I do not claim I independently discovered or hand-wrote it. The commit contains the corrected handler, not a separately committed broken version.
+- **Commit:** [`1f5e870`](https://github.com/ShawnUriel/Dishboxd/commit/1f5e8707a7983cd04fc07405d955e12694a55c17)
+
+**5. Its screenshots did not show up on GitHub.**
 - **What it gave me:** for my documentation, it put the screenshots inside the Markdown file as base64 image data.
 - **What was wrong:** GitHub does not display images written that way, so my documentation showed no screenshots. I only noticed when I opened it on GitHub.
 - **What I did instead:** I had it switch to real image files in `project/Documentation/` with relative links. They still did not show at first, because I had uploaded the images to a different folder than the links pointed to; they worked once the paths matched.
@@ -84,18 +102,33 @@ Commit links go to this repository. The links marked *(workspace)* go to my priv
 
 ### Code I wrote myself
 
-> **To do (me):** name the part of the code I wrote myself, with the file, the commit, and my own explanation of what it does and why it is built that way. The course asks for at least a fifth of the project to be my own code.
+**Evidence still needed:** I have not yet identified and explained a verified set of code I wrote myself. I cannot claim that the required fifth is complete from this log alone. My ideas, designs, instructions, testing and decisions matter, but they do not establish that I personally wrote 20% of the application's code. A commit under my GitHub name also does not establish that: the AI-generated work was committed under my name too.
+
+For each part I actually wrote, I need to add its exact file and functions, a commit link showing the code, and an explanation in my own words of how it works, why I chose that approach, and how I checked it. I also need to say whether AI supplied any of that code and explain how the identified parts amount to at least a fifth of the app. I will not count AI-generated code as my own just because I reviewed or understood it.
+
+**Commit showing the attribution gap:** [`527c89c`](https://github.com/ShawnUriel/Dishboxd/commit/527c89c00592c8efa5c555fa594a524587b498ca) already left this section unfinished while recording that Claude Code wrote most of the project. This update makes the missing evidence explicit rather than inventing an authorship claim.
+
+### Recorded responsibilities and AI-written code
+
+| Part | Recorded contribution | Commit evidence |
+| --- | --- | --- |
+| Project idea, README, design system and wireframes | My direction and design input, as described in the existing log. Claude Code generated the implementation from them. These are not claimed as independently written application code. | [Initial README](https://github.com/ShawnUriel/Dishboxd/commit/c799d05809b618ce34a45f931d24058f6b02c0b9), [styled UI](https://github.com/ShawnUriel/Dishboxd/commit/b0ba43a44f96b9928d40c6ad6a44c0ab709a96e7) |
+| Empty journal and working forms | I corrected the requirements; Claude Code removed sample entries and restored the forms. | [UI and forms](https://github.com/ShawnUriel/Dishboxd/commit/b0ba43a44f96b9928d40c6ad6a44c0ab709a96e7), [README follow-up](https://github.com/ShawnUriel/Dishboxd/commit/890715eba2c1fbe0bcc889864fe0c22da7083b8f) |
+| Accounts and protected frontend routes | I chose Neon Auth and required verified email; Claude Code implemented the account pages and login checks. | [Accounts](https://github.com/ShawnUriel/Dishboxd/commit/66bb77676183f5a98789dfd690d7e72a48b44160) |
+| Express API, validation and Postgres persistence | Claude Code generated the database, authenticated routes, parameterized queries and transaction handling. Understanding them is separate from having written them myself. | [Database and API](https://github.com/ShawnUriel/Dishboxd/commit/1f5e8707a7983cd04fc07405d955e12694a55c17) |
+| Google restaurant search and dish suggestions | I created and restricted the API key and chose the alternatives to unavailable Google menu data; Claude Code implemented the search and suggestions. | [Google integration](https://github.com/ShawnUriel/Dishboxd/commit/23d5ee49a10b4fd2c79dd36c6d48d709d69581a0) |
+| AI usage documentation | Claude Code helped draft the earlier log; ChatGPT helped review and clarify this update using existing records. Neither drafting step proves manual code authorship. | [Earlier log and README credit](https://github.com/ShawnUriel/Dishboxd/commit/527c89c00592c8efa5c555fa594a524587b498ca) |
 
 ### One AI-written piece I understand: `requireUser` in `backend/auth.js`
 
-Commit [`1f5e870`](https://github.com/ShawnUriel/Dishboxd/commit/1f5e870). Claude Code wrote it, and I kept it unchanged.
+Original implementation: [`1f5e870`](https://github.com/ShawnUriel/Dishboxd/commit/1f5e8707a7983cd04fc07405d955e12694a55c17). Claude Code wrote it. The module-loading approach was later corrected in [`654fe89`](https://github.com/ShawnUriel/Dishboxd/commit/654fe89203cf49d6ce1281cf9b6859cd175db131). This explanation demonstrates understanding of AI-written code; it is not a claim that I wrote it myself.
 
 `requireUser` is the middleware that guards every journal route. In `server.js` it sits in front of `/api/restaurants`, `/api/visits`, `/api/boxes` and `/api/places`, so none of their handlers runs unless it calls `next()`.
 
 1. It reads the `Authorization` header and expects `Bearer <token>`. With no header, or a different scheme, it stops right there with `401 "Log in to continue."`.
-2. The token is a JWT that Neon Auth signed when the user logged in. `jwtVerify` from the `jose` library checks its signature with Neon Auth's **public** keys, which `createRemoteJWKSet` downloads once from `/.well-known/jwks.json` and caches. My server never holds a secret that could create tokens, and passwords never reach it.
-3. It only accepts the `EdDSA` algorithm. That blocks a known trick where an attacker changes the token's algorithm field (for example to `none`) to skip the signature check.
+2. The token is a JWT that Neon Auth signed when the user logged in. The server loads `jose` using `import()` and shares the resulting verifier through `verifierReady`. `jwtVerify` checks the signature using Neon Auth's **public** keys, which `createRemoteJWKSet` fetches from `/.well-known/jwks.json` and caches. The server does not hold Neon's token-signing private key, and the login password is handled by Neon Auth.
+3. It only accepts the `EdDSA` algorithm. Tokens declaring a different algorithm, including unsigned `none` tokens, are rejected; signature verification still has to succeed with Neon's public keys.
 4. It requires the issuer and audience to be my Neon Auth origin, so a token made by another service, or for another app, is refused. `jwtVerify` also rejects expired tokens; Neon Auth's last 15 minutes, and the React app fetches a fresh one when it needs to.
-5. If everything passes, it sets `req.userId` to the token's `sub` (the user's id) and calls `next()`. Any failure, such as a bad signature, a wrong issuer or an expired token, ends in `401 "Your session has expired. Log in again."`. It never says which check failed.
+5. If everything passes, it requires a `sub` claim, sets `req.userId` to that value (the user's id) and calls `next()`. A token verification failure, such as a bad signature, a wrong issuer or an expired token, ends in `401 "Your session has expired. Log in again."`. It never says which token check failed. A failure to load `jose` happens outside that token-check `try` block and reaches Express's server error handler as `500` instead.
 
 This is why the API trusts `req.userId` and never a user id sent in the request body: every query filters by `req.userId`, so a logged-in user cannot ask for someone else's journal by changing an id. My tests showed it: no token and a tampered token both got `401`, and a second account could not see or change the first account's data.
