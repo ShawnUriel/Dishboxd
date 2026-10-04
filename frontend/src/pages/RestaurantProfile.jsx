@@ -15,17 +15,27 @@ export default function RestaurantProfile() {
   const navigate = useNavigate()
   const { restaurants, visits, boxes, addToBox } = useJournal()
   const [choosingBox, setChoosingBox] = useState(false)
+  const [filing, setFiling] = useState(false)
+  const [boxError, setBoxError] = useState('')
 
   const restaurant = restaurants.find((r) => r.id === id)
   if (!restaurant) return <NotFound />
 
   const history = visits.filter((visit) => visit.restaurantId === id).sort(newestFirst)
   const favourites = topDishes(history)
-  const place = { placeId: restaurant.placeId, name: restaurant.name, address: restaurant.address }
+  // The ticket sends this restaurant's id, so the visit is filed under it
+  const place = { restaurantId: restaurant.id, placeId: restaurant.placeId, name: restaurant.name, address: restaurant.address }
 
-  function fileInBox(boxId) {
-    addToBox(boxId, id)
-    navigate(`/lists/${boxId}`)
+  async function fileInBox(boxId) {
+    setFiling(true)
+    setBoxError('')
+    try {
+      await addToBox(boxId, id)
+      navigate(`/lists/${boxId}`)
+    } catch (saveFailure) {
+      setBoxError(saveFailure.message)
+      setFiling(false)
+    }
   }
 
   return (
@@ -64,7 +74,7 @@ export default function RestaurantProfile() {
                     <li key={box.id}>
                       <button
                         type="button"
-                        disabled={alreadyFiled}
+                        disabled={alreadyFiled || filing}
                         onClick={() => fileInBox(box.id)}
                         className="w-full text-left font-mono text-sm hover:text-brand focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:text-faint"
                       >
@@ -75,6 +85,11 @@ export default function RestaurantProfile() {
                   )
                 })}
               </ul>
+              {boxError && (
+                <p role="alert" className="mt-3 font-mono text-sm text-brand">
+                  {boxError}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => setChoosingBox(false)}

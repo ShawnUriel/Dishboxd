@@ -16,10 +16,13 @@ export default function VisitForm() {
   const [dishes, setDishes] = useState(() => [newDish(), newDish()])
   const [notes, setNotes] = useState('')
   const [triedSubmit, setTriedSubmit] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const date = todayIso()
 
   // The ticket needs a restaurant, so without one go back to the search.
   if (!place) return <Navigate to="/search" replace />
+
 
   const filledDishes = dishes
     .filter((dish) => dish.name.trim())
@@ -33,15 +36,22 @@ export default function VisitForm() {
   let problem = ''
   if (!rating) problem = 'Pick an overall rating (1 to 5 stars).'
   else if (filledDishes.length === 0) problem = 'Add at least one dish.'
-  const error = triedSubmit ? problem : ''
+  const error = (triedSubmit ? problem : '') || saveError
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setTriedSubmit(true)
-    if (problem) return
+    setSaveError('')
+    if (problem || saving) return
 
-    const restaurantId = addVisit(place, { date, rating, notes: notes.trim(), dishes: filledDishes })
-    navigate(`/restaurant/${restaurantId}`)
+    setSaving(true)
+    try {
+      const restaurantId = await addVisit(place, { date, rating, notes: notes.trim(), dishes: filledDishes })
+      navigate(`/restaurant/${restaurantId}`)
+    } catch (saveFailure) {
+      setSaveError(saveFailure.message)
+      setSaving(false)
+    }
   }
 
   return (
@@ -97,8 +107,8 @@ export default function VisitForm() {
         >
           Cancel
         </Button>
-        <Button type="submit" className="flex-1">
-          Stamp &amp; submit
+        <Button type="submit" className="flex-1" disabled={saving}>
+          {saving ? 'Stamping…' : 'Stamp & submit'}
         </Button>
       </footer>
     </form>

@@ -6,14 +6,23 @@ import ListCard from '../molecules/ListCard.jsx'
 export default function ListGrid({ boxes, onCreate }) {
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     const cleanTitle = title.trim()
-    if (!cleanTitle) return
-    onCreate(cleanTitle)
-    setTitle('')
-    setAdding(false)
+    if (!cleanTitle || saving) return
+    setSaving(true)
+    setError('')
+    try {
+      await onCreate(cleanTitle)
+      setTitle('')
+      setAdding(false)
+    } catch (saveFailure) {
+      setError(saveFailure.message)
+    }
+    setSaving(false)
   }
 
   return (
@@ -39,9 +48,14 @@ export default function ListGrid({ boxes, onCreate }) {
               onChange={(event) => setTitle(event.target.value)}
               className="border-b border-muted bg-transparent font-mono focus:border-brand focus:outline-none"
             />
+            {error && (
+              <p role="alert" className="font-mono text-xs text-brand">
+                {error}
+              </p>
+            )}
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={!title.trim()}>
-                Save
+              <Button type="submit" size="sm" disabled={!title.trim() || saving}>
+                {saving ? 'Saving…' : 'Save'}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>
                 Cancel

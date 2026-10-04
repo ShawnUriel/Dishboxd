@@ -1,68 +1,104 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../lib/api.js'
 import { JournalContext } from './journalContext.js'
 
-const sameText = (a = '', b = '') => a.trim().toLowerCase() === b.trim().toLowerCase()
+function JournalMessage({ children }) {
+  return (
+    <div className="bg-lined grid min-h-screen place-items-center px-4">
+      <div className="text-center font-mono text-sm text-muted">{children}</div>
+    </div>
+  )
+}
 
-// Holds restaurants, visits and boxes for the whole app. It starts empty.
-// For now it lives in memory (a page refresh clears it); PostgreSQL replaces this later.
+// Loads the logged-in user's restaurants, visits and boxes from the API, and saves
+// every change through it. The data lives in the Neon database, so it survives a refresh.
 export function JournalProvider({ children }) {
-  const [restaurants, setRestaurants] = useState([])
-  const [visits, setVisits] = useState([])
-  const [boxes, setBoxes] = useState([])
+  const [journal, setJournal] = useState({ restaurants: [], visits: [], boxes: [] })
+  const [status, setStatus] = useState('loading')
+  const [loadError, setLoadError] = useState('')
+  const [attempt, setAttempt] = useState(0)
 
-  // A place from Google has a placeId. One added by hand has placeId null,
-  // so it is matched on name + address instead.
-  function findRestaurant(place) {
-    if (place.placeId) return restaurants.find((r) => r.placeId === place.placeId)
-    return restaurants.find((r) => !r.placeId && sameText(r.name, place.name) && sameText(r.address, place.address))
-  }
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([api('/api/restaurants'), api('/api/visits'), api('/api/boxes')])
+      .then(([restaurantData, visitData, boxData]) => {
+        if (cancelled) return
+        setJournal({ restaurants: restaurantData.restaurants, visits: visitData.visits, boxes: boxData.boxes })
+        setStatus('ready')
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setLoadError(error.message)
+        setStatus('error')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [attempt])
 
-  // Saves one ticket: files the restaurant if it is NEW, then adds the visit.
+  // Saves one ticket. A known restaurant is sent by id; a NEW one (from search,
+  // or added by hand) is sent as a place for the server to file.
   // Returns the restaurant id so the caller can open its profile.
-  function addVisit(place, { date, rating, notes, dishes }) {
-    let restaurant = findRestaurant(place)
+  async function addVisit(place, { date, rating, notes, dishes }) {
+    const where = place.restaurantId
+      ? { restaurantId: place.restaurantId }
+      : { place: { placeId: place.placeId ?? null, name: place.name, address: place.address ?? '' } }
+    const saved = await api('/api/visits', { method: 'POST', body: { ...where, date, rating, notes, dishes } })
 
-    if (!restaurant) {
-      const number = Math.max(0, ...restaurants.map((r) => r.number)) + 1
-      restaurant = {
-        id: `r-${crypto.randomUUID()}`,
-        number,
-        placeId: place.placeId ?? null,
-        name: place.name.trim(),
-        address: (place.address ?? '').trim(),
-      }
-      setRestaurants((current) => [...current, restaurant])
-    }
-
-    const visit = { id: `v-${crypto.randomUUID()}`, restaurantId: restaurant.id, date, rating, notes, dishes }
-    setVisits((current) => [visit, ...current])
-    return restaurant.id
+    setJournal((current) => ({
+      ...current,
+      restaurants: current.restaurants.some((r) => r.id === saved.restaurant.id)
+        ? current.restaurants
+        : [...current.restaurants, saved.restaurant],
+      visits: [saved.visit, ...current.visits],
+    }))
+    return saved.restaurant.id
   }
 
-  function addBox(title) {
-    const colors = ['orange', 'mint', 'lavender', 'pink', 'plum']
-    const box = {
-      id: `b-${crypto.randomUUID()}`,
-      title,
-      description: '',
-      isPublic: false,
-      color: colors[boxes.length % colors.length],
-      restaurantIds: [],
-    }
-    setBoxes((current) => [...current, box])
+  async function addBox(title) {
+    const { box } = await api('/api/boxes', { method: 'POST', body: { title } })
+    setJournal((current) => ({ ...current, boxes: [...current.boxes, box] }))
     return box.id
   }
 
-  function addToBox(boxId, restaurantId) {
-    setBoxes((current) =>
-      current.map((box) =>
-        box.id === boxId && !box.restaurantIds.includes(restaurantId)
-          ? { ...box, restaurantIds: [...box.restaurantIds, restaurantId] }
-          : box,
-      ),
+  async function addToBox(boxId, restaurantId) {
+    const { box } = await api(`/api/boxes/${boxId}/restaurants`, { method: 'POST', body: { restaurantId } })
+    setJournal((current) => ({
+      ...current,
+      boxes: current.boxes.map((existing) => (existing.id === box.id ? box : existing)),
+    }))
+  }
+
+  if (status === 'loading') {
+    return (
+      <JournalMessage>
+        <p role="status" className="uppercase tracking-widest">
+          Opening your journal…
+        </p>
+      </JournalMessage>
     )
   }
 
-  const value = { restaurants, visits, boxes, addVisit, addBox, addToBox }
+  if (status === 'error') {
+    return (
+      <JournalMessage>
+        <p role="alert" className="text-brand">
+          Could not load your journal: {loadError}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setStatus('loading')
+            setAttempt((count) => count + 1)
+          }}
+          className="mt-4 font-semibold text-accent underline hover:text-accent-dark"
+        >
+          Try again
+        </button>
+      </JournalMessage>
+    )
+  }
+
+  const value = { ...journal, addVisit, addBox, addToBox }
   return <JournalContext.Provider value={value}>{children}</JournalContext.Provider>
 }
