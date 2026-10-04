@@ -4,13 +4,21 @@ import { newDish } from '../../lib/dishes.js'
 import { formatMoney } from '../../lib/format.js'
 
 const MAX_DISHES = 20
+const SUGGESTIONS_ID = 'dish-suggestions'
 
 // The ticket's line items: a repeating list of dishes, "+ add line item", and the total.
-export default function DishEntryList({ dishes, onChange }) {
+// `suggestions` are dishes logged here before; picking one fills in the last price paid.
+export default function DishEntryList({ dishes, onChange, suggestions = [] }) {
   const total = dishes.reduce((sum, dish) => sum + (Number(dish.price) || 0), 0)
 
+  function withLastPrice(dish, previous) {
+    if (dish.price !== '' || dish.name === previous.name) return dish
+    const match = suggestions.find((suggestion) => suggestion.name.toLowerCase() === dish.name.trim().toLowerCase())
+    return match ? { ...dish, price: match.price.toFixed(2) } : dish
+  }
+
   function update(index, dish) {
-    onChange(dishes.map((current, i) => (i === index ? dish : current)))
+    onChange(dishes.map((current, i) => (i === index ? withLastPrice(dish, current) : current)))
   }
 
   function remove(index) {
@@ -20,18 +28,29 @@ export default function DishEntryList({ dishes, onChange }) {
   return (
     <section aria-labelledby="items-label">
       <SectionLabel id="items-label">Items</SectionLabel>
+      {suggestions.length > 0 && (
+        <p className="mt-1 font-mono text-xs text-muted">Dishes you've had here before come up as you type.</p>
+      )}
       <ul className="mt-3">
         {dishes.map((dish, index) => (
           <DishFormRow
             key={dish.key}
             index={index}
             dish={dish}
+            listId={suggestions.length > 0 ? SUGGESTIONS_ID : undefined}
             onChange={(updated) => update(index, updated)}
             onRemove={() => remove(index)}
             canRemove={dishes.length > 1}
           />
         ))}
       </ul>
+      {suggestions.length > 0 && (
+        <datalist id={SUGGESTIONS_ID}>
+          {suggestions.map((suggestion) => (
+            <option key={suggestion.name} value={suggestion.name} />
+          ))}
+        </datalist>
+      )}
       <button
         type="button"
         onClick={() => onChange([...dishes, newDish()])}

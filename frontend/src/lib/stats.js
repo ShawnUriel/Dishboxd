@@ -26,3 +26,16 @@ export function topDishes(visits, limit = 3) {
 export function newestFirst(a, b) {
   return b.date.localeCompare(a.date)
 }
+
+// Dishes already logged at one restaurant, each with the price paid most recently,
+// e.g. [{ name: 'Chickenjoy', price: 99 }]. Suggested while typing on a new ticket.
+export function dishSuggestions(visits) {
+  const latest = new Map()
+  for (const visit of [...visits].sort(newestFirst)) {
+    for (const dish of visit.dishes) {
+      const key = dish.name.toLowerCase()
+      if (!latest.has(key)) latest.set(key, { name: dish.name, price: Number(dish.price) || 0 })
+    }
+  }
+  return [...latest.values()]
+}

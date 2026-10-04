@@ -5,13 +5,14 @@ import StarRating from '../components/atoms/StarRating.jsx'
 import DishEntryList from '../components/organisms/DishEntryList.jsx'
 import { newDish } from '../lib/dishes.js'
 import { formatDate, todayIso } from '../lib/format.js'
+import { dishSuggestions } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
 
 // "Dishboxd Ticket": log one visit and its dishes for the restaurant picked on Search.
 export default function VisitForm() {
   const place = useLocation().state?.place
   const navigate = useNavigate()
-  const { addVisit } = useJournal()
+  const { addVisit, visits } = useJournal()
   const [rating, setRating] = useState(0)
   const [dishes, setDishes] = useState(() => [newDish(), newDish()])
   const [notes, setNotes] = useState('')
@@ -23,6 +24,10 @@ export default function VisitForm() {
   // The ticket needs a restaurant, so without one go back to the search.
   if (!place) return <Navigate to="/search" replace />
 
+  // A restaurant already on file suggests the dishes logged there before
+  const suggestions = place.restaurantId
+    ? dishSuggestions(visits.filter((visit) => visit.restaurantId === place.restaurantId))
+    : []
 
   const filledDishes = dishes
     .filter((dish) => dish.name.trim())
@@ -75,7 +80,7 @@ export default function VisitForm() {
           <StarRating value={rating} onChange={setRating} label="Overall rating" />
         </div>
 
-        <DishEntryList dishes={dishes} onChange={setDishes} />
+        <DishEntryList dishes={dishes} onChange={setDishes} suggestions={suggestions} />
 
         <div>
           <label htmlFor="notes" className="font-mono text-sm uppercase tracking-widest text-muted">

@@ -2,7 +2,8 @@ import Leader from '../atoms/Leader.jsx'
 import PriceInput from '../atoms/PriceInput.jsx'
 
 // One line item on the ticket: number, dish name ..... $price
-export default function DishFormRow({ index, dish, onChange, onRemove, canRemove }) {
+// `listId` points the name at a <datalist> of dishes logged here before.
+export default function DishFormRow({ index, dish, listId, onChange, onRemove, canRemove }) {
   const number = index + 1
   return (
     <li className="flex items-center gap-2 py-1.5 font-mono text-sm">
@@ -13,6 +14,7 @@ export default function DishFormRow({ index, dish, onChange, onRemove, canRemove
           type="text"
           value={dish.name}
           maxLength={80}
+          list={listId}
           placeholder="Dish name"
           onChange={(event) => onChange({ ...dish, name: event.target.value })}
           className="w-full border-b border-transparent bg-transparent placeholder:text-faint focus:border-brand focus:outline-none"

@@ -3,8 +3,9 @@ import PhotoThumbnail from '../atoms/PhotoThumbnail.jsx'
 import Tag from '../atoms/Tag.jsx'
 import { restaurantCode } from '../../lib/format.js'
 
-// One catalog card in the search results. `restaurant` is set when it is already ON FILE.
-export default function SearchResultItem({ place, restaurant, onSelect }) {
+// One catalog card in the search results. `restaurant` is set when it is already ON FILE;
+// `exact` marks the Google result whose name is exactly what was typed.
+export default function SearchResultItem({ place, restaurant, onSelect, exact = false }) {
   return (
     <li>
       <button
@@ -19,7 +20,7 @@ export default function SearchResultItem({ place, restaurant, onSelect }) {
           <span className="block font-serif text-lg font-semibold">{place.name}</span>
           {place.address && <span className="block font-mono text-sm text-muted">{place.address}</span>}
         </span>
-        {restaurant && <Tag>On file</Tag>}
+        {restaurant ? <Tag>On file</Tag> : exact && <Tag>Exact match</Tag>}
         <span className="sr-only">{restaurant ? 'Open its record' : 'Start a new entry'}</span>
       </button>
     </li>

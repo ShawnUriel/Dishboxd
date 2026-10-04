@@ -12,6 +12,19 @@ export default function RestaurantHeader({ restaurant, rating }) {
       <p className="mt-5 font-mono text-sm tracking-widest text-muted">{restaurantCode(restaurant.number)}</p>
       <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight">{restaurant.name}</h1>
       {restaurant.address && <p className="mt-1 font-mono text-sm text-muted">{restaurant.address}</p>}
+      {/* Google gives no menus through its API, so a place found on Google links to its Maps page,
+          which shows the menu, photos and opening hours when the restaurant has them */}
+      {restaurant.placeId && (
+        <a
+          href={`https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(restaurant.placeId)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 font-mono text-sm text-accent underline underline-offset-4 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          Menu &amp; info on Google Maps <span aria-hidden="true">↗</span>
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+      )}
       <div className="mt-4">
         <RatingCircle value={rating} size="lg" />
       </div>
