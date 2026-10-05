@@ -78,6 +78,15 @@ ChatGPT helped review the earlier log against the repository history and clarify
 - **Authorship:** I specified the features and design direction; Codex wrote this implementation and its verification harness. Committing under my Git identity does not make this independently written code.
 - **Commit:** [`e2e21ae`](https://github.com/ShawnUriel/Dishboxd/commit/e2e21ae4439a6e1e5c35467d146afdfdb4003443)
 
+**2026-10-05 · Codex · Tray redesign and restaurant search photos**
+- **What I asked:** to improve the Tray/Card Catalog page and the box design, then to fix restaurant and shop photos when searching.
+- **What it gave back:** layered coloured folders with restaurant previews, counts, search, Filled/Empty filters and sorting; a clearer create-box form; and a matching open-box page with review photos, ratings, visit counts and last-visit dates.
+- **What it found about search photos:** every result used a striped placeholder, and autocomplete supplied no photo data. Codex added a server-side Google Place Details/Photos lookup and loads thumbnails as their cards become visible. Saved restaurants use my uploaded review photos first. Google images include photographer credits and source links, while the API key stays on the server.
+- **What I kept or changed, and why:** I requested consistency with the existing paper/index-card style. The implementation keeps that direction, adds useful empty states, and preserves the restaurant filing flow. A missing image does not stop a restaurant from being selected.
+- **Verification:** Codex checked empty and populated Tray pages, box creation and reload persistence, filters, sorting, navigation and phone-width layouts using temporary journal data. It also verified real photos on five Google search results and checked that selection opens the correct entry form. Build and lint passed, along with 26 backend test results covering the existing journal boundaries and the new photo endpoint. Its review also corrected keyboard focus when reopening an existing form and added accessible action descriptions to search cards.
+- **Authorship:** I requested the changes; Codex wrote the implementation and tests. This remains AI-written code.
+- **Commit:** [`38642d8`](https://github.com/ShawnUriel/Dishboxd/commit/38642d8f0903644afc24abe3981720dab2754b95)
+
 ## 2. Where the AI got it wrong
 
 **1. It filled my journal with made-up restaurants.**
@@ -154,6 +163,7 @@ Claude wrote most of the frontend and backend code. I manually set up the extern
 | Vercel deployment and Neon connection configuration | I manually set up the deployment, researched the deployment problem and re-entered the Neon database connection URL. Claude helped with configuration code and troubleshooting. The service-console settings change is not in Git. | [Deployment configuration](https://github.com/ShawnUriel/Dishboxd/commit/defdec517091e4cdcca3baf0e07e37e3b6b54859), [database URL checks](https://github.com/ShawnUriel/Dishboxd/commit/f75061ff755af128fad2a20cf3e3b7349de0de89) |
 | Checking the "NEW ENTRY" flow | I noticed that the button opened Search rather than fields and explained the expected behaviour. Codex later implemented and browser-checked the correction. | [Original button and form](https://github.com/ShawnUriel/Dishboxd/commit/b0ba43a44f96b9928d40c6ad6a44c0ab709a96e7), [direct-entry correction](https://github.com/ShawnUriel/Dishboxd/commit/e2e21ae4439a6e1e5c35467d146afdfdb4003443) |
 | Profiles, follows, review photos and the Home redesign | I requested the features and consistency with my design. Codex wrote the frontend, backend, migration and automated verification. This is AI-written application code and does not count toward my independently written fifth. | [Feature implementation](https://github.com/ShawnUriel/Dishboxd/commit/e2e21ae4439a6e1e5c35467d146afdfdb4003443) |
+| Tray design and restaurant search photos | I requested a better Tray and working restaurant thumbnails. Codex wrote the folder UI, search/filter/sort controls, Google photo route, attribution display and verification. | [Tray and search photos](https://github.com/ShawnUriel/Dishboxd/commit/38642d8f0903644afc24abe3981720dab2754b95) |
 | AI usage documentation | Claude Code helped draft the earlier log; ChatGPT helped review and clarify this update using existing records. Neither drafting step proves manual code authorship. | [Earlier log and README credit](https://github.com/ShawnUriel/Dishboxd/commit/527c89c00592c8efa5c555fa594a524587b498ca) |
 
 ### What I learned from using AI
