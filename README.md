@@ -2,7 +2,7 @@
 
 [![Made with AI](https://img.shields.io/badge/Made_with-AI_assistance-blue)](AI-USAGE.md)
 
-Built with heavy help from **Claude Code**, which wrote most of the original app, and **Codex**, which implemented the profiles, following, review photos and updated home page. What they did, where they went wrong and which parts are mine are in [`AI-USAGE.md`](AI-USAGE.md).
+Built with heavy help from **Claude Code**, which wrote most of the original app, and **Codex**, which implemented profiles, following, photos and the Home/Tray improvements. What they did, where they went wrong and which parts are mine are in [`AI-USAGE.md`](AI-USAGE.md).
 
 ## 1. Overview
 
@@ -65,7 +65,7 @@ Optional: the app runs without it, and the search then says "Google restaurant s
 4. Under **Billing → Budgets & alerts**, set a small budget alert. Under the API's **Quotas**, you can also cap the autocomplete requests per day.
 5. Put the key in `backend/.env` as `GOOGLE_PLACES_API_KEY`, then restart the backend.
 
-Each search costs one Autocomplete request. The first 10,000 a month are free, then about US$2.83 per 1,000 (Google's pricing page has current numbers). The app waits until you stop typing before it asks Google, and each user can search at most 30 times a minute.
+Search uses Autocomplete requests; visible Google thumbnails also use Place Details and Place Photos. These are subject to [Google Maps Platform pricing](https://developers.google.com/maps/billing-and-pricing/pricing). The app waits until you stop typing before searching and fetches Google photos only as their cards enter the viewport. Each user can make up to 30 searches and 30 photo lookups per minute.
 
 ### Environment and configuration
 
@@ -188,6 +188,18 @@ Every journal page needs you to be logged in. The journal starts empty, and ever
 4. You land on the restaurant's profile (`/restaurant/:id`), with the new visit in **Visit history**. Its **+ NEW ENTRY** stamp logs another visit at the same restaurant. A restaurant found through Google has a **Menu & info on Google Maps** link, which opens its Google Maps page (menu, photos and opening hours, when the restaurant has them) in a new tab.
 5. Click **+ FILE IN A BOX** to add the restaurant to a box. Make boxes first in the **TRAY** tab (`/lists`) with **New box**.
 
+### The Tray and card catalog
+
+The **TRAY** tab (`/lists`) organizes your saved restaurants into coloured folders with layered index cards, restaurant previews and collection counts. Search by box name or a restaurant inside it, filter to filled or empty boxes, and sort by newest, name or restaurant count. **New box** opens a named collection form with suggestions; creating or cancelling returns focus to the main button.
+
+Open a box to see its restaurants as photo cards, plus visit counts, average meal ratings and last-visit dates. The header matches the folder's colour, and **Back to your tray** returns to the collection. Empty boxes explain how to file a restaurant; existing filing controls on restaurant pages save directly to Postgres. Folder motion respects reduced-motion preferences, and both pages adapt to phone widths.
+
+### Search photos
+
+Search cards show your latest uploaded review photo for restaurants already in your journal. When no review photo is available and a Google place ID exists, the card fetches a Google place photo. Photographer credits and source links appear below it. The server keeps the API key private and retrieves fresh photo references; Google photo URLs and references are not saved to the database. See the [Place Photos documentation](https://developers.google.com/maps/documentation/places/web-service/place-photos).
+
+Listings without a photo get a clear placeholder. A failed lookup offers **Retry photo**, while the restaurant can still be selected. Manually added places without a Google ID can use photos uploaded with a review.
+
 ### Profiles and following
 
 Use the **PROFILE** tab to upload an avatar and edit your display name, unique username and bio (up to 280 characters). Choose up to four **Top picks** from restaurants with a shared review. Your profile includes recent reviews, reviewed restaurants, and follower/following counts that open their member lists. Your own recent-review tab also shows your private entries, labelled as private; other diners see shared entries only.
@@ -206,14 +218,14 @@ The uploader accepts JPEG, PNG and WebP files up to 12 MB, resizes them and conv
 | `/signup` | Sign up | Name, email and password, or **Continue with Google** |
 | `/verify-email` | Check your email | Enter the emailed code; **Send a new code** |
 | `/` | The Log | Welcome card, statistics, Yours/Following/Discover review feeds, suggestions and **NEW ENTRY** |
-| `/search` | Card Catalog | Search slip, ON FILE restaurants that match, Google Maps places to eat, and a NEW card to add a restaurant yourself |
+| `/search` | Card Catalog | Matching journal/Google restaurants, real photos with credits, and a NEW card to add a restaurant yourself |
 | `/log/new` | Dishboxd Ticket | Restaurant fields, visit date, rating, dishes, notes, photos and optional sharing; opens directly |
 | `/profile` | My profile | Editable name, username, bio, avatar and top picks; reviews, restaurants and connections |
 | `/profile/:id` | Diner profile | Shared reviews, reviewed restaurants, top picks, follower/following lists and a follow button |
 | `/people` | Find diners | Search profiles and follow/unfollow diners |
 | `/restaurant/:id` | Restaurant profile | Photo, catalog number, average rating, **Menu & info on Google Maps** (Google places only), top dishes, visit history, **+ FILE IN A BOX**, **+ NEW ENTRY** |
-| `/lists` | The Card Catalog | Every box as a coloured card, plus **New box** |
-| `/lists/:id` | Box open | The box's title, description, Public/Private stamp and its restaurants |
+| `/lists` | The Card Catalog | Layered folder cards, collection counts, search/filter/sort controls and **New box** |
+| `/lists/:id` | Box open | Colour-matched folder header, visit/rating statistics and restaurant photo cards |
 | anything else | Nothing on file | A not-found page with a link home |
 
 ### Design system
@@ -249,6 +261,7 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 | `POST` | `/api/boxes` | `{ title }` | Makes an empty box (colours rotate) | `201` `{ box }` |
 | `POST` | `/api/boxes/:id/restaurants` | `{ restaurantId }` | Files a restaurant in a box | `201`, or `200` if it was already there |
 | `GET` | `/api/places/autocomplete?q=jollibee` | | Asks Google Places for up to five places to eat matching `q` (2–100 characters). The backend adds the API key, so the browser never sees it. At most 30 searches a minute per user. | `200` `{ places: [{ placeId, name, address }] }` |
+| `GET` | `/api/places/:placeId/photo` | | Fresh Google photo lookup, up to 30 per user per minute. Returns safe public image/source links and author credits; never the API key or photo resource name. | `200` `{ photo: null }` or `{ photo: { url, sourceUrl, attributions } }` |
 
 **Errors** are always JSON like `{"error":"Rating must be a whole number from 1 to 5."}`:
 
@@ -259,7 +272,7 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 | `404` | The restaurant or box does not exist **or belongs to someone else** (the API never reveals which), or an unknown path |
 | `409` | A profile username is already taken |
 | `413` | JSON body over 20 KB or a JPEG upload over 750 KB |
-| `429` | More than 30 Google searches a minute or 30 photo uploads in ten minutes. `Retry-After` says how long to wait. |
+| `429` | More than 30 Google searches or photo lookups a minute, or 30 photo uploads in ten minutes. `Retry-After` says how long to wait. |
 | `500` | Anything unexpected. Details are logged in the backend terminal only, never sent to the browser. |
 | `502` | Google did not answer or returned an error (Google's message is logged in the backend terminal only) |
 | `503` | `GOOGLE_PLACES_API_KEY` is not set, so Google search is off |
@@ -278,7 +291,7 @@ cd ../backend
 npm test
 ```
 
-Backend integration tests use real Postgres in a temporary schema and fixture authentication. Set `TEST_DATABASE_URL`, or configure `backend/.env`; the database role must be allowed to create schemas. The harness removes the temporary schema afterwards and does not modify real accounts or journals. Tests cover private/public review access, photo ownership, transactional saves, follows, profile validation, avatars and repeatable migrations. These tests do not test Neon signup or login.
+Backend integration tests use real Postgres in a temporary schema and fixture authentication. Set `TEST_DATABASE_URL`, or configure `backend/.env`; the database role must be allowed to create schemas. The harness removes the temporary schema afterwards and does not modify real accounts or journals. Tests cover private/public review access, photo ownership, transactional saves, follows, profile validation, avatars and repeatable migrations. Separate Google-photo tests stub the upstream service to check authentication, timeouts, missing photos, attribution, unsafe links and key nonexposure without billed requests. Run only those with `node --test test/places.test.js` from `backend`. These tests do not test Neon signup or login.
 
 For an isolated browser preview, run `node test/browser-preview.cjs` from `backend` and open `http://127.0.0.1:5173`. It uses real API routes and a temporary database schema with local fixture accounts; production authentication remains unchanged. Type `stop` in its terminal to clean up. Browser checks covered profile editing, avatar/review uploads, top picks, following, reload persistence and mobile layouts.
 
@@ -337,7 +350,7 @@ The app is deployed to Vercel. Accounts, journal forms, profiles, follows and ph
 - **Google search misses some places.** Google sends at most five suggestions per search, and Dishboxd hides the ones that are not places to eat (in testing, "SM City Clark" and "Holy Angel University" were hidden correctly). A restaurant that Google files only as a generic "establishment" is hidden too; one Mang Inasal branch was. Google also may not know a name the way you type it ("Starbucks Marquee Mall" found nothing). In those cases the restaurant can still be added by hand.
 - **Search leans toward Angeles City.** Without a location, Google favours places near the computer that asks, which would be the hosting company's data centre once deployed. So every search leans toward a 5 km circle around Angeles City (`SEARCH_AREA` in `backend/routes/places.js`). It is a bias, not a limit: places farther away still show up when their name matches, but someone searching from another city gets Angeles branches first.
 - **No menus from Google.** The Places API does not return menus or dishes, so a Google place links to its Google Maps page instead, and dish suggestions come only from your own past tickets.
-- **Restaurant photos appear after a review photo is uploaded.** Restaurants without one retain the striped placeholder.
+- **Photo availability depends on the source.** Search uses Google photos where available and your own review photos for saved restaurants. Manually added places need a review upload; Google errors show a retry action. Restaurant records and Tray photo cards use your own review uploads.
 - **No edit or delete** for saved review text/dishes or boxes. Review sharing can be changed; boxes remain private.
 - **Rate limits use server memory.** Google searches and photo uploads are limited per user, but their counters reset on restart and are not shared between Vercel instances. Other journal routes have no rate limit.
 - **Social lists are bounded.** Feeds/recent reviews show the latest 20 entries, reviewed restaurants up to 100, and each connection list up to 100. Pagination is a future improvement.
@@ -358,4 +371,4 @@ The completed security checklist is kept in my private course workspace at `proj
 
 Claude Code (Anthropic's AI coding assistant) wrote most of the code in this project, and an AI chat tool helped me debug CORS in Week 1. What I asked for, what I kept or changed, where the AI got it wrong, and which code is mine are logged in [`AI-USAGE.md`](AI-USAGE.md).
 
-**Credit:** Claude Code generated most of the original frontend and backend. Codex implemented diner profiles, following, review photos and the home redesign, and ran the associated verification. I directed the features, manually set up external APIs and deployment, and researched problems Claude's troubleshooting did not resolve. An AI chat assistant helped with CORS; ChatGPT helped review the usage documentation. See [`AI-USAGE.md`](AI-USAGE.md) for decisions, corrections and contribution evidence.
+**Credit:** Claude Code generated most of the original frontend and backend. Codex implemented diner profiles, following, review/search photos and the Home/Tray redesigns, and ran the associated verification. I directed the features, manually set up external APIs and deployment, and researched problems Claude's troubleshooting did not resolve. An AI chat assistant helped with CORS; ChatGPT helped review the usage documentation. See [`AI-USAGE.md`](AI-USAGE.md) for decisions, corrections and contribution evidence.

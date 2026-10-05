@@ -21,7 +21,7 @@ export default function Search() {
         <SearchAutocomplete onSelect={handleSelect} />
       </div>
       <p className="mt-8 font-mono text-sm text-muted">
-        Picking a tray already ON FILE opens its record; a NEW tray stages it and moves to the entry ticket. Not on Google Maps? Add it yourself from the NEW card.
+        Choose a restaurant to log a visit, or open one already in your journal. Can’t find your place? Add it yourself from the NEW card.
       </p>
     </>
   )

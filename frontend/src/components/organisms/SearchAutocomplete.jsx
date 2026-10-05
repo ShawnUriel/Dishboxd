@@ -3,6 +3,7 @@ import { SearchIcon } from '../atoms/Icon.jsx'
 import ManualPlaceForm from '../molecules/ManualPlaceForm.jsx'
 import SearchResultItem from '../molecules/SearchResultItem.jsx'
 import { api } from '../../lib/api.js'
+import { newestFirst } from '../../lib/stats.js'
 import { useJournal } from '../../state/useJournal.js'
 
 const SEARCH_DELAY_MS = 350
@@ -13,11 +14,17 @@ const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase()
 // 2. Google Maps places to eat that match (an exact name match goes first; Enter picks it),
 // 3. a NEW card to add the typed name by hand, for places not on Google Maps.
 export default function SearchAutocomplete({ onSelect }) {
-  const { restaurants } = useJournal()
+  const { restaurants, visits } = useJournal()
   const [query, setQuery] = useState('')
   const [google, setGoogle] = useState({ query: '', places: [], error: '' })
 
   const search = query.trim()
+  const photosByRestaurant = new Map()
+  for (const visit of [...visits].sort(newestFirst)) {
+    if (visit.photoIds?.length && !photosByRestaurant.has(visit.restaurantId)) {
+      photosByRestaurant.set(visit.restaurantId, visit.photoIds[0])
+    }
+  }
 
   // Ask Google only after typing pauses, so a name costs one request instead of one per letter
   useEffect(() => {
@@ -88,7 +95,7 @@ export default function SearchAutocomplete({ onSelect }) {
 
       <ul className="mt-6 space-y-4">
         {onFile.map((restaurant) => (
-          <SearchResultItem key={restaurant.id} place={restaurant} restaurant={restaurant} onSelect={onSelect} />
+          <SearchResultItem key={restaurant.id} place={restaurant} restaurant={restaurant} photoId={photosByRestaurant.get(restaurant.id)} onSelect={onSelect} />
         ))}
 
         {sortedGoogle.map((place) => (
