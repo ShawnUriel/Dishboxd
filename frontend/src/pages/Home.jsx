@@ -6,14 +6,16 @@ import PersonCard from '../components/molecules/PersonCard.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
 import { api } from '../lib/api.js'
 import { authCall, authClient } from '../lib/auth.js'
+import { categoryCounts } from '../lib/categories.js'
 import { formatMonth } from '../lib/format.js'
+import { mergeReview } from '../lib/reviews.js'
 import { averageRating, newestFirst } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
 
 export default function Home() {
   const navigate = useNavigate()
   const { data: session } = authClient.useSession()
-  const { visits, restaurants, boxes, shareVisit } = useJournal()
+  const { visits, restaurants, boxes, shareVisit, updateVisit } = useJournal()
   const [profile, setProfile] = useState(null)
   const [people, setPeople] = useState([])
   const [tab, setTab] = useState('journal')
@@ -59,6 +61,7 @@ export default function Home() {
     .map((r) => ({ ...r, rating: averageRating(visits.filter((v) => v.restaurantId === r.id)) }))
     .sort((a, b) => b.rating - a.rating)[0]
   const dishCount = visits.reduce((count, visit) => count + visit.dishes.length, 0)
+  const categories = categoryCounts(restaurants)
   const name = profile?.name || session?.user.name || 'food lover'
   async function logOut() {
     const result = await authCall(() => authClient.signOut())
@@ -132,7 +135,7 @@ export default function Home() {
             >
               + New entry
             </Link>
-            <Link to="/people" className="text-xs text-accent underline underline-offset-4">
+            <Link to="/friends" className="text-xs text-accent underline underline-offset-4">
               Find your food people ↗
             </Link>
           </div>
@@ -222,7 +225,9 @@ export default function Home() {
                     review={review}
                     restaurant={byId.get(review.restaurantId)}
                     own
+                    currentUserId={session?.user.id}
                     onShare={shareVisit}
+                    onChange={updateVisit}
                   />
                 ))}
               </div>
@@ -266,7 +271,12 @@ export default function Home() {
           ) : socialReviews.length ? (
             <div className="stagger space-y-4">
               {socialReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  currentUserId={session?.user.id}
+                  onChange={(partial) => setSocialReviews((current) => mergeReview(current, partial))}
+                />
               ))}
             </div>
           ) : (
@@ -280,7 +290,7 @@ export default function Home() {
                   : 'No shared reviews from other diners yet. Share one of yours from your profile.'}
               </p>
               <Link
-                to="/people"
+                to="/friends"
                 className="mt-5 inline-block text-sm text-accent underline underline-offset-4"
               >
                 Meet other diners →
@@ -322,12 +332,33 @@ export default function Home() {
               </>
             )}
           </section>
+          {restaurants.length > 0 && (
+            <section className="paper-card p-5" aria-labelledby="sorted-title">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-accent">Your places, sorted</p>
+              <h2 id="sorted-title" className="mt-3 font-serif text-xl font-semibold">
+                By category
+              </h2>
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {categories.map(({ name, count }) => (
+                  <li key={name}>
+                    <Link
+                      to={`/search?category=${encodeURIComponent(name)}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1.5 text-xs hover:border-accent hover:text-accent"
+                    >
+                      {name}
+                      <span className="text-muted">{count}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section aria-labelledby="people-title">
             <div className="mb-3 flex items-center justify-between">
               <h2 id="people-title" className="font-serif text-xl font-semibold">
                 Around the table
               </h2>
-              <Link to="/people" className="text-xs text-accent underline">
+              <Link to="/friends" className="text-xs text-accent underline">
                 See all
               </Link>
             </div>
@@ -345,7 +376,7 @@ export default function Home() {
             ) : (
               <div className="paper-card p-5 text-xs leading-6 text-muted">
                 Your food circle starts here.{' '}
-                <Link to="/people" className="text-accent underline">
+                <Link to="/friends" className="text-accent underline">
                   Explore the directory.
                 </Link>
               </div>

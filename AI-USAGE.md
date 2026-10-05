@@ -87,6 +87,15 @@ ChatGPT helped review the earlier log against the repository history and clarify
 - **Authorship:** I requested the changes; Codex wrote the implementation and tests. This remains AI-written code.
 - **Commit:** [`38642d8`](https://github.com/ShawnUriel/Dishboxd/commit/38642d8f0903644afc24abe3981720dab2754b95)
 
+**2026-10-05 · Claude Code · Item reviews, categories, stickers, friends and co-reviews**
+- **What I asked:** for reviews of each item (for example "Spanish latte 10/10, classic fries 7/10"); prices in pesos; restaurants sorted into categories (cafe, matcha bar, Italian…); a burning effect when an item is scored past 10; editable card catalog descriptions and colours; stickers made from my own images (pixelated, vectorized, just the image or translucent) for profiles, review cards, the card catalog and elsewhere; a dedicated friends page; every dish on the ticket in its own container with a description and a sticker; a plate under the ticket so it looks like a dining table; likes, co-review tickets with two authors, reposts and sharing; and the restaurant's Google photo on the ticket when Google has one.
+- **What it gave back:** an additive migration (a score and note per dish, a category per restaurant, any box colour, and tables for stickers, sticker placements, likes, reposts and co-authors); new `stickers` and `reviews` API routes and extended visits, boxes, restaurants, profiles, places and media routes; the ticket redesigned on a plate and gingham tablecloth with one container per item (score slider and −/+ buttons, note, sticker), a category picker, a co-author invite and the Google photo banner; flames, an ember glow and burning score badges for items past 10; a sticker maker that cuts out plain backgrounds and pixelates, flattens or fades images in the browser; draggable, tiltable stickers on profiles, reviews, boxes and items; an editable box name, description and colour; the Friends page and tab; like, repost and share buttons; co-review invites with accept and decline; a shareable review page; and category filters on Home, Search and profiles.
+- **Choices it made that I should confirm:** scores past 10 stop at 12 ("Off the charts" for 11, "Legendary" for 12); friends are diners who follow each other; a co-review has one co-author, who must be a friend and accept first; reposts reach followers' Following feeds and a Reposts tab; stickers are stored in Postgres (60 per user, 400 KB each) and are visible only where their card is; the ₱10,000 limit per item stays.
+- **What I kept or changed, and why:** *(to fill in after I review and try the changes)*
+- **Verification:** 44 backend test results passed, including 17 new checks of item scores, categories, box editing, sticker ownership and visibility, likes, reposts, friends and co-reviews, and one for the larger ticket photo. Lint and build passed. Browser checks with temporary fixture accounts and stubbed Google responses (no billed requests) covered the feeds, the Friends page and accepting an invite, search categories, the ticket from a Google place (photo, category, item scores, fire and making a sticker), profile and box decoration, box editing, likes and reposts, and five pages at phone width, with no console errors. The migration was **not** run against my real database: it has to be run with `npm run db:setup` before deploying.
+- **Authorship:** I requested the features; Claude Code wrote the implementation, tests and documentation updates. This remains AI-written code.
+- **Commit:** not committed yet.
+
 ## 2. Where the AI got it wrong
 
 **1. It filled my journal with made-up restaurants.**
@@ -141,6 +150,12 @@ ChatGPT helped review the earlier log against the repository history and clarify
 - **What caught it and changed:** Codex's browser verification caught this. It made the mobile grid explicitly one column and allowed its children to shrink with `min-w-0`. The repeat check measured both the viewport and page content at 390 pixels. I do not claim I independently discovered or hand-wrote this correction.
 - **Commit:** [`e2e21ae`](https://github.com/ShawnUriel/Dishboxd/commit/e2e21ae4439a6e1e5c35467d146afdfdb4003443) contains the corrected layout and verification harness; the intermediate broken layout was not separately committed.
 
+**9. Likes and reposts blocked each other.**
+- **What it gave me:** a like/repost bar where an action in progress disabled every other action on the card.
+- **What was wrong:** tapping repost while a like was still saving was silently ignored, and a slow reply to one action could overwrite the newer count of the other.
+- **What caught it and changed:** Claude Code's browser verification caught the ignored repost. Likes and reposts now save independently, and each reply updates only its own counts. The same checks found three layout problems at narrow widths (a squeezed name in the Home sidebar, a cramped score row on phones, cutlery cut off at the table edge), which were corrected. I do not claim I independently discovered or hand-wrote these corrections.
+- **Commit:** not committed yet; the faulty versions were never committed.
+
 ## 3. Who wrote what
 
 ### My manual work and the own-code requirement
@@ -164,6 +179,7 @@ Claude wrote most of the frontend and backend code. I manually set up the extern
 | Checking the "NEW ENTRY" flow | I noticed that the button opened Search rather than fields and explained the expected behaviour. Codex later implemented and browser-checked the correction. | [Original button and form](https://github.com/ShawnUriel/Dishboxd/commit/b0ba43a44f96b9928d40c6ad6a44c0ab709a96e7), [direct-entry correction](https://github.com/ShawnUriel/Dishboxd/commit/e2e21ae4439a6e1e5c35467d146afdfdb4003443) |
 | Profiles, follows, review photos and the Home redesign | I requested the features and consistency with my design. Codex wrote the frontend, backend, migration and automated verification. This is AI-written application code and does not count toward my independently written fifth. | [Feature implementation](https://github.com/ShawnUriel/Dishboxd/commit/e2e21ae4439a6e1e5c35467d146afdfdb4003443) |
 | Tray design and restaurant search photos | I requested a better Tray and working restaurant thumbnails. Codex wrote the folder UI, search/filter/sort controls, Google photo route, attribution display and verification. | [Tray and search photos](https://github.com/ShawnUriel/Dishboxd/commit/38642d8f0903644afc24abe3981720dab2754b95) |
+| Item reviews, categories, stickers, friends and co-reviews | I requested the features. Claude Code wrote the migration, API routes, interface, tests and documentation updates. This is AI-written application code. | Not committed yet |
 | AI usage documentation | Claude Code helped draft the earlier log; ChatGPT helped review and clarify this update using existing records. Neither drafting step proves manual code authorship. | [Earlier log and README credit](https://github.com/ShawnUriel/Dishboxd/commit/527c89c00592c8efa5c555fa594a524587b498ca) |
 
 ### What I learned from using AI

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { GuestOnly, RequireAuth } from './components/organisms/AuthGate.jsx'
 import Navbar from './components/organisms/Navbar.jsx'
 import Home from './pages/Home.jsx'
@@ -13,7 +13,8 @@ import SignUp from './pages/SignUp.jsx'
 import VerifyEmail from './pages/VerifyEmail.jsx'
 import VisitForm from './pages/VisitForm.jsx'
 import Profile from './pages/Profile.jsx'
-import People from './pages/People.jsx'
+import Friends from './pages/Friends.jsx'
+import ReviewPage from './pages/ReviewPage.jsx'
 
 // Start each new page at the top instead of keeping the old scroll position
 function ScrollToTop() {
@@ -67,7 +68,9 @@ function App() {
             <Route path="/lists/:id" element={<ListDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:id" element={<Profile />} />
-            <Route path="/people" element={<People />} />
+            <Route path="/friends" element={<Friends />} />
+            <Route path="/people" element={<Navigate to="/friends?tab=find" replace />} />
+            <Route path="/review/:id" element={<ReviewPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>

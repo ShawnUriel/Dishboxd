@@ -72,10 +72,12 @@ router.put('/avatar', uploadLimit, parseImage, async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Photo not found.' })
+  // Owners, avatars, shared reviews, and the friend invited to co-author the review
   const { rows } = await pool.query(
     `SELECT m.data FROM media m WHERE m.id = $1 AND (
       m.user_id = $2 OR EXISTS(SELECT 1 FROM profiles WHERE avatar_id = m.id)
-      OR EXISTS(SELECT 1 FROM visit_logs WHERE id = m.visit_id AND is_public))`,
+      OR EXISTS(SELECT 1 FROM visit_logs WHERE id = m.visit_id AND is_public)
+      OR EXISTS(SELECT 1 FROM visit_coauthors WHERE visit_id = m.visit_id AND user_id = $2))`,
     [req.params.id, req.userId],
   )
   if (!rows.length) return res.status(404).json({ error: 'Photo not found.' })

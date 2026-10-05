@@ -67,6 +67,49 @@ function isPlaceToEat(prediction) {
   return (prediction.types ?? []).some((type) => FOOD_TYPES.has(type) || type.endsWith('_restaurant'))
 }
 
+// A starting category for the ticket from Google's types, in Google's order (most specific first).
+// Cuisines come from "<cuisine>_restaurant"; the diner can always change it.
+const CATEGORY_NAMES = {
+  cafe: 'Cafe',
+  coffee_shop: 'Coffee shop',
+  tea_house: 'Tea house',
+  bakery: 'Bakery',
+  bar: 'Bar',
+  pub: 'Bar',
+  wine_bar: 'Wine bar',
+  ice_cream_shop: 'Ice cream',
+  dessert_shop: 'Dessert',
+  dessert_restaurant: 'Dessert',
+  donut_shop: 'Donuts',
+  juice_shop: 'Juice bar',
+  sandwich_shop: 'Sandwiches',
+  food_court: 'Food court',
+  fast_food_restaurant: 'Fast food',
+  hamburger_restaurant: 'Burgers',
+  pizza_restaurant: 'Pizza',
+  steak_house: 'Steakhouse',
+  barbecue_restaurant: 'Barbecue',
+  seafood_restaurant: 'Seafood',
+  ramen_restaurant: 'Ramen',
+  sushi_restaurant: 'Sushi',
+  breakfast_restaurant: 'Breakfast & brunch',
+  brunch_restaurant: 'Breakfast & brunch',
+  buffet_restaurant: 'Buffet',
+  vegan_restaurant: 'Vegan',
+  vegetarian_restaurant: 'Vegetarian',
+  fine_dining_restaurant: 'Fine dining',
+}
+function categoryFromTypes(types) {
+  for (const type of types ?? []) {
+    if (CATEGORY_NAMES[type]) return CATEGORY_NAMES[type]
+    if (type.endsWith('_restaurant') && type !== 'restaurant') {
+      const cuisine = type.slice(0, -'_restaurant'.length).replaceAll('_', ' ')
+      return cuisine.charAt(0).toUpperCase() + cuisine.slice(1)
+    }
+  }
+  return ''
+}
+
 // At most 30 searches a minute per user (typing is debounced, so real use is far lower)
 const searchLimit = perUserLimit({
   limit: 30,
@@ -119,6 +162,7 @@ router.get('/autocomplete', searchLimit, async (req, res) => {
       placeId: prediction.placeId,
       name: prediction.structuredFormat?.mainText?.text ?? prediction.text?.text ?? '',
       address: prediction.structuredFormat?.secondaryText?.text ?? '',
+      category: categoryFromTypes(prediction.types),
     }))
     .filter((place) => place.name)
 
@@ -146,7 +190,9 @@ router.get('/:placeId/photo', (req, res, next) => {
     if (typeof selected?.name !== 'string' || !selected.name.startsWith(prefix) || !PHOTO_RESOURCE.test(selected.name.slice(prefix.length))) {
       throw new Error('Invalid photo resource')
     }
-    const media = await googlePhotoJson(`https://places.googleapis.com/v1/${selected.name}/media?maxWidthPx=400&skipHttpRedirect=true`)
+    // ?size=large is for the wide banner on the entry ticket
+    const width = req.query.size === 'large' ? 800 : 400
+    const media = await googlePhotoJson(`https://places.googleapis.com/v1/${selected.name}/media?maxWidthPx=${width}&skipHttpRedirect=true`)
     const url = safeGoogleUrl(media?.photoUri)
     if (!url) throw new Error('Invalid photo URL')
     if (selected.authorAttributions != null && !Array.isArray(selected.authorAttributions)) throw new Error('Invalid photo attribution')
@@ -164,4 +210,4 @@ router.get('/:placeId/photo', (req, res, next) => {
   }
 })
 
-module.exports = { router }
+module.exports = { router, categoryFromTypes }

@@ -8,7 +8,7 @@ Built with heavy help from **Claude Code**, which wrote most of the original app
 
 Dishboxd is a Letterboxd-style food and dining journal. Remember where you ate, what you ordered and how it tasted, with your own photos from each visit. Keep entries private or share selected reviews with other diners, follow their journals and collect your favourite restaurants on your profile.
 
-**Current stage: working journal, diner profiles and social reviews.** Accounts use [Neon Auth](https://neon.com/docs/neon-auth), with verified email or Google sign-in. Entries, uploaded photos, profiles and follows persist through Express into Neon Postgres. Home combines your journal with Following and Discover feeds, restaurant suggestions and the existing paper/index-card design. Google restaurant search is optional; a new entry can also be filled in directly.
+**Current stage: working journal, item-by-item reviews and a social layer.** Accounts use [Neon Auth](https://neon.com/docs/neon-auth), with verified email or Google sign-in. Entries, uploaded photos, stickers, profiles, follows, likes, reposts and co-reviews persist through Express into Neon Postgres. Every item on a ticket gets its own score out of 10 (past 10 sets the review on fire), restaurants are sorted into categories, prices are in Philippine pesos, and the ticket is filled in on a plate at a dining table. Home combines your journal with Following and Discover feeds, restaurant suggestions and the existing paper/index-card design. Google restaurant search is optional; a new entry can also be filled in directly.
 
 ## 2. Setup and installation
 
@@ -105,20 +105,25 @@ cd backend
 npm run db:setup
 ```
 
-It runs `backend/database_setup.sql` in a transaction and is safe to run again. **Run this before deploying an upgrade.** The profile/photo upgrade adds three tables and a sharing flag; existing visits stay private and existing journal data is preserved. The eight tables:
+It runs `backend/database_setup.sql` in a transaction and is safe to run again. **Run this before deploying an upgrade**, because the new code reads the new columns and tables. Upgrades are additive and keep existing data: the profile/photo upgrade added three tables and a sharing flag (existing visits stay private); the item-review upgrade adds a score and note to each dish (old dishes stay unscored), a category to each restaurant (empty until sorted), allows any colour for boxes, and adds five tables for stickers, likes, reposts and co-authors. The thirteen tables:
 
 | Table | Holds |
 | --- | --- |
-| `restaurants` | A restaurant a user filed: catalog number (R-001…), name, address, and `google_place_id`, which is empty for places added by hand. |
-| `visit_logs` | One visit (ticket): restaurant, date, 1–5 rating, notes and an explicit sharing flag (private by default). |
-| `dishes` | The line items on a ticket, in order, with prices. |
-| `boxes` | A user's card catalog boxes: title, colour, public or private. |
+| `restaurants` | A restaurant a user filed: catalog number (R-001…), name, address, category (Cafe, Matcha bar…; empty until sorted), and `google_place_id`, which is empty for places added by hand. |
+| `visit_logs` | One visit (ticket): restaurant, date, 1–5 overall rating, notes and an explicit sharing flag (private by default). |
+| `dishes` | The items on a ticket, in order, each with its price in pesos, its own score (0–12, where 10 is perfect and past 10 is "on fire") and a note. |
+| `boxes` | A user's card catalog boxes: title, description, colour (one of five names or any `#rrggbb`), public or private. |
 | `box_restaurants` | Which restaurants are filed in which box. |
 | `profiles` | Unique username, display name, bio, avatar reference and up to four top restaurant picks. |
 | `follows` | Follower/following relationships; duplicate follows and self-follows are prevented. |
 | `media` | Compressed JPEG bytes and ownership, attached to a profile or review. |
+| `stickers` | A user's sticker book: small transparent PNGs made in the browser, with the style used (just the image, pixelated, vector or translucent). |
+| `sticker_placements` | Where a sticker is stuck: exactly one of the user's own profile, reviews, boxes or dishes, with position, tilt and size. |
+| `review_likes` | Which diner liked which review, once each. |
+| `review_reposts` | Which diner reposted which review to their followers, once each. |
+| `visit_coauthors` | The one friend invited to co-author a review, pending until they accept. |
 
-Journal records and profiles belong to Neon Auth users, and account deletion cascades through their data. Composite foreign keys prevent visits and box entries from mixing users' restaurants. The API checks ownership before attaching a photo. UUIDs identify records; authorization checks protect private data.
+Journal records and profiles belong to Neon Auth users, and account deletion cascades through their data. Composite foreign keys prevent visits and box entries from mixing users' restaurants, and stop anyone from placing another user's sticker or decorating another user's box. The API checks ownership before attaching a photo or a sticker. UUIDs identify records; authorization checks protect private data.
 
 There is no seed data: the app and the database both start empty.
 
@@ -154,7 +159,7 @@ npm run dev
 
 Vite prints a local address, usually <http://localhost:5173>. Open it in your browser.
 
-**What you should see:** a ticket-style login card on ruled notebook paper. After signing in, **The Log** has a welcome card, journal statistics, recent reviews and suggestions, with `HOME`, `SEARCH`, `TRAY` and `PROFILE` tabs. A new journal starts empty and offers **NEW ENTRY**. On a phone the tabs become a bottom bar. Cards use subtle entrance and hover animations, with reduced-motion preferences respected.
+**What you should see:** a ticket-style login card on ruled notebook paper. After signing in, **The Log** has a welcome card, journal statistics, recent reviews and suggestions, with `HOME`, `SEARCH`, `TRAY`, `FRIENDS` and `PROFILE` tabs. A new journal starts empty and offers **NEW ENTRY**. On a phone the tabs become a bottom bar. Cards use subtle entrance and hover animations, with reduced-motion preferences respected.
 
 To stop either server, press `Ctrl + C` in its terminal.
 
@@ -164,13 +169,13 @@ Dishboxd deploys as **one Vercel project with two services**, set up in the root
 
 1. In Vercel, choose **Add New → Project** and import the repository. Leave the Root Directory as the repository root; Vercel reads `vercel.json`.
 2. Add the environment variables, which both services share: `DATABASE_URL`, `NEON_AUTH_URL`, `GOOGLE_PLACES_API_KEY`, `GOOGLE_PLACES_REGION`, `VITE_NEON_AUTH_URL`, and `CLIENT_ORIGIN` set to the site's address. Do not set `VITE_API_URL`: production builds call `/api` on the same site.
-3. Run `npm run db:setup` from the backend against the deployment database before deploying new schema changes. Deploy, then add the site's address to Neon Auth's trusted domains (`neon neon-auth domain add …`), or login and Google sign-in will not work there.
+3. Run `npm run db:setup` from the backend against the deployment database before deploying new schema changes (including this item-review upgrade). Deploy, then add the site's address to Neon Auth's trusted domains (`neon neon-auth domain add …`), or login and Google sign-in will not work there.
 
 Only variables whose names start with `VITE_` are built into the browser code, so the secrets stay on the server even though both services can see them.
 
 ## 4. Features and usage
 
-Every journal page needs you to be logged in. The journal starts empty, and everything you add (restaurants, visits, boxes) is saved to the database straight away. If saving fails (for example, the backend is not running), the page says so and keeps what you typed.
+Every journal page needs you to be logged in. The journal starts empty, and everything you add (restaurants, visits, boxes, stickers) is saved to the database straight away. If saving fails (for example, the backend is not running), the page says so and keeps what you typed.
 
 ### Accounts (Neon Auth)
 
@@ -183,16 +188,24 @@ Every journal page needs you to be logged in. The journal starts empty, and ever
 ### Primary flow: log a visit
 
 1. On **The Log** (`/`), click **+ NEW ENTRY**.
-2. The **Dishboxd Ticket** (`/log/new`) opens immediately. Choose a restaurant already in your journal or enter a restaurant name and optional address. The **Find on Google** link opens the optional Card Catalog search; choosing a result starts a ticket with its name and address filled in.
-3. Choose the visit date and star rating, add dishes and prices, and write your review. Upload up to three photos from that visit. Leave **Share on my profile** unchecked for a private entry, or check it to share the review, dishes, notes and photos with signed-in diners. Click **STAMP & SUBMIT**. Validation keeps the form available if something needs fixing. At a previously visited restaurant, dish suggestions come from your own past tickets.
+2. The **Dishboxd Ticket** (`/log/new`) opens immediately, lying on a plate on a gingham tablecloth (with a napkin and cutlery on wide screens). Choose a restaurant already in your journal or enter a restaurant name and optional address, and pick a **category** with one tap (Cafe, Matcha bar, Italian…) or type your own. The **Find on Google** link opens the optional Card Catalog search; choosing a result starts a ticket with its name, address and a suggested category filled in. When Google has a photo of the place, it appears across the top of the ticket with its credits; otherwise the ticket looks as before.
+3. Choose the visit date and overall star rating. Each item you ordered gets its own container: its name, price in pesos, **its own score out of 10**, a note ("Silky, not too sweet"), and optionally one sticker you can drag anywhere on it. Write your review and upload up to three photos from that visit. **Ate with a friend?** invites one friend to co-author the review. Leave **Share on my profile** unchecked for a private entry, or check it to share the review, items, notes and photos with signed-in diners. Click **STAMP & SUBMIT**. Validation keeps the form available if something needs fixing. At a previously visited restaurant, dish suggestions come from your own past tickets.
 4. You land on the restaurant's profile (`/restaurant/:id`), with the new visit in **Visit history**. Its **+ NEW ENTRY** stamp logs another visit at the same restaurant. A restaurant found through Google has a **Menu & info on Google Maps** link, which opens its Google Maps page (menu, photos and opening hours, when the restaurant has them) in a new tab.
 5. Click **+ FILE IN A BOX** to add the restaurant to a box. Make boxes first in the **TRAY** tab (`/lists`) with **New box**.
+
+### Item scores, and going past 10
+
+Use **−** / **+** or the slider to score an item from 0 to 10; a word appears with it ("Pretty good", "Perfect"). Something unforgettable can go past 10: **11/10** ("Off the charts") and **12/10** ("Legendary") are the top. Any item past 10 sets the whole review on fire: the card glows like embers, the score badge burns, and flames rise along the bottom of the card (taller ones for 12/10). The item's container on the ticket catches fire as you score it. Flames respect reduced-motion preferences. Scores are optional; the 1–5 star overall rating stays.
+
+### Categories
+
+Every restaurant can belong to one category, chosen on the ticket or changed later on its page (**Change** under the name). Common ones are one tap away and any short name works. Home's **By category** card and the **On file by category** chips in Search show your places grouped by category, with **Not sorted yet** for older ones; diners' reviewed restaurants can be filtered by category on their profile. Categories appear as small tags on review cards, search results and open boxes.
 
 ### The Tray and card catalog
 
 The **TRAY** tab (`/lists`) organizes your saved restaurants into coloured folders with layered index cards, restaurant previews and collection counts. Search by box name or a restaurant inside it, filter to filled or empty boxes, and sort by newest, name or restaurant count. **New box** opens a named collection form with suggestions; creating or cancelling returns focus to the main button.
 
-Open a box to see its restaurants as photo cards, plus visit counts, average meal ratings and last-visit dates. The header matches the folder's colour, and **Back to your tray** returns to the collection. Empty boxes explain how to file a restaurant; existing filing controls on restaurant pages save directly to Postgres. Folder motion respects reduced-motion preferences, and both pages adapt to phone widths.
+Open a box to see its restaurants as photo cards, plus visit counts, average meal ratings and last-visit dates. The header matches the folder's colour, and **Back to your tray** returns to the collection. **Edit box** changes its name, its description (up to 300 characters, shown on the folder in the Tray) and its colour: the five originals, seven more swatches, or **Any colour** from a colour picker. Dark colours switch to white text automatically. **Stickers** decorates the box; its stickers also show on its folder in the Tray. Empty boxes explain how to file a restaurant; existing filing controls on restaurant pages save directly to Postgres. Folder motion respects reduced-motion preferences, and both pages adapt to phone widths.
 
 ### Search photos
 
@@ -200,11 +213,21 @@ Search cards show your latest uploaded review photo for restaurants already in y
 
 Listings without a photo get a clear placeholder. A failed lookup offers **Retry photo**, while the restaurant can still be selected. Manually added places without a Google ID can use photos uploaded with a review.
 
-### Profiles and following
+### Stickers
+
+Make stickers from any picture (JPEG, PNG, WebP or GIF up to 12 MB) in the sticker maker, which opens from any **Stickers**, **Decorate** or **Add a sticker** button. Choose a style: **Just the image**, **Pixelated** (chunky 8-bit pixels), **Vector** (a few flat colours, like an illustration) or **Translucent** (see-through, like clear vinyl). **Cut out a plain background** removes a plain backdrop, including holes like the middle of a donut, and **White sticker edge** adds a die-cut border. The preview updates as you change options. Everything is processed in the browser; only the finished sticker, a small PNG, is uploaded.
+
+Stick them on your profile card, your review cards, your boxes and each item on a ticket. Drag a sticker to move it; tap it for tilt, size and **Peel off** buttons. With a keyboard: arrows move it, `[` and `]` tilt, `-` and `+` resize, and Delete peels it off. A sticker book holds 60 stickers of up to 400 KB each, and each card up to twelve (one per item). Deleting a sticker from the book (**Manage**) peels it off everywhere. Others see a sticker only where they can see the card: profiles are visible to members, reviews follow their sharing, and boxes stay private.
+
+### Profiles, friends and following
 
 Use the **PROFILE** tab to upload an avatar and edit your display name, unique username and bio (up to 280 characters). Choose up to four **Top picks** from restaurants with a shared review. Your profile includes recent reviews, reviewed restaurants, and follower/following counts that open their member lists. Your own recent-review tab also shows your private entries, labelled as private; other diners see shared entries only.
 
-**Find diners** opens a directory searchable by display name or username. Open a profile to follow or unfollow it. Home's **Following** tab shows shared reviews by diners you follow; **Discover** shows shared reviews from other diners. Review cards in your own profile can be shared or made private later. Making a review private also removes its photos from other diners' access and updates the public restaurant summary.
+The **FRIENDS** tab (`/friends`) gathers your people. **Friends** follow each other; **Follow back** lists diners who follow you; **Following** lists those who have not followed back yet; **Find diners** searches the directory by display name or username. Profiles and person cards show a **Friends** or **Follows you** badge. Home's **Following** tab shows shared reviews written or co-written by diners you follow, and reviews they reposted (credited "Reposted by…"); **Discover** shows shared reviews from other diners. Review cards in your own profile can be shared or made private later. Making a review private also removes its photos from other diners' access and updates the public restaurant summary.
+
+On a shared review, **♥** likes it (once per diner) and **↻** reposts it to your followers; your reposts are listed on your profile's **Reposts** tab. **Share** opens the phone's share sheet, or copies the review's link (`/review/:id`), which opens for signed-in diners.
+
+**Co-reviews:** invite one friend to co-author a review, from the ticket or later from the review card. The invite appears on their Friends page (and on the review), where they **Accept** or **Decline**. Once accepted, both names and avatars head the review, and it appears on both profiles. The invited friend can read the review even if it is private, so they can decide. The author can cancel the invite or remove the co-author, and the co-author can leave.
 
 ### Photo uploads
 
@@ -218,14 +241,16 @@ The uploader accepts JPEG, PNG and WebP files up to 12 MB, resizes them and conv
 | `/signup` | Sign up | Name, email and password, or **Continue with Google** |
 | `/verify-email` | Check your email | Enter the emailed code; **Send a new code** |
 | `/` | The Log | Welcome card, statistics, Yours/Following/Discover review feeds, suggestions and **NEW ENTRY** |
-| `/search` | Card Catalog | Matching journal/Google restaurants, real photos with credits, and a NEW card to add a restaurant yourself |
-| `/log/new` | Dishboxd Ticket | Restaurant fields, visit date, rating, dishes, notes, photos and optional sharing; opens directly |
-| `/profile` | My profile | Editable name, username, bio, avatar and top picks; reviews, restaurants and connections |
-| `/profile/:id` | Diner profile | Shared reviews, reviewed restaurants, top picks, follower/following lists and a follow button |
-| `/people` | Find diners | Search profiles and follow/unfollow diners |
-| `/restaurant/:id` | Restaurant profile | Photo, catalog number, average rating, **Menu & info on Google Maps** (Google places only), top dishes, visit history, **+ FILE IN A BOX**, **+ NEW ENTRY** |
-| `/lists` | The Card Catalog | Layered folder cards, collection counts, search/filter/sort controls and **New box** |
-| `/lists/:id` | Box open | Colour-matched folder header, visit/rating statistics and restaurant photo cards |
+| `/search` | Card Catalog | Matching journal/Google restaurants with category tags, **On file by category** chips, real photos with credits, and a NEW card to add a restaurant yourself |
+| `/log/new` | Dishboxd Ticket | On a plate at the table: Google photo (when available), restaurant fields, category, visit date, rating, one container per item (price, score, note, sticker), review, photos, co-author invite and optional sharing |
+| `/profile` | My profile | Editable name, username, bio, avatar, top picks and stickers (**Decorate**); reviews (incl. accepted co-reviews), reposts, restaurants and connections |
+| `/profile/:id` | Diner profile | Shared reviews and co-reviews, reposts, reviewed restaurants by category, top picks, follower/following lists and a follow button |
+| `/friends` | Friends | Friends, follow-backs, following, the diner directory and co-review invites |
+| `/people` | (redirect) | Opens **Find diners** on the Friends page |
+| `/review/:id` | One review | A single review, where shared links land, with likes, reposts and co-review controls |
+| `/restaurant/:id` | Restaurant profile | Photo, catalog number, category (**Change**), average rating, **Menu & info on Google Maps** (Google places only), top dishes with average scores, visit history with item scores, **+ FILE IN A BOX**, **+ NEW ENTRY** |
+| `/lists` | The Card Catalog | Layered folder cards in each box's colour, with descriptions and stickers, collection counts, search/filter/sort controls and **New box** |
+| `/lists/:id` | Box open | Colour-matched folder header with **Edit box** (name, description, colour) and **Stickers**, visit/rating statistics and restaurant photo cards |
 | anything else | Nothing on file | A not-found page with a link home |
 
 ### Design system
@@ -236,6 +261,9 @@ The uploader accepts JPEG, PNG and WebP files up to 12 MB, resizes them and conv
 - **Components:** built in atomic layers in `frontend/src/components/` (`atoms/`, `molecules/`, `organisms/`), following my wireframe component tree.
 - **Responsive:** below 768px the side tabs become a bottom tab bar, and the restaurant profile's two columns stack into one.
 - **Motion:** subtle card entrances and hover movement; disabled when the viewer prefers reduced motion. Keyboard focus remains visible.
+- **Fire:** reviews with an item past 10 get an ember glow, flame-coloured score badges and CSS flames (`.on-fire`, `.flames` and `.score-fire` in `index.css`), static when motion is reduced.
+- **Table setting:** the ticket's gingham tablecloth, plate, napkin and cutlery are drawn with CSS and inline SVG (`TableSetting.jsx`, `.dining-table`/`.plate` in `index.css`); the napkin and cutlery appear only when the screen is wide enough to show them beside the plate.
+- **Friends tab:** lavender with dark text, like the other light tabs.
 
 ### API endpoints
 
@@ -244,34 +272,49 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 | Method | Path | Body | What it does | Success |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/test` | | Proves the server is running. No login needed. | `200` |
-| `GET` | `/api/restaurants` | | The user's restaurants, by catalog number | `200` |
-| `GET` | `/api/visits` | | The user's visits, newest first, each with its dishes | `200` |
-| `POST` | `/api/visits` | `{ restaurantId }` **or** `{ place: { placeId, name, address } }`, plus `{ date, rating, notes, dishes, isPublic, photoIds }` | Atomically saves a ticket, dish lines and up to three owned photo references. `isPublic` defaults to false. | `201` `{ restaurant, visit }` |
+| `GET` | `/api/restaurants` | | The user's restaurants, by catalog number, with categories | `200` |
+| `PATCH` | `/api/restaurants/:id` | `{ category }` | Sorts one of the user's restaurants into a category (empty clears it) | `200` `{ restaurant }` |
+| `GET` | `/api/visits` | | The user's visits, newest first, each with its items (score, note, sticker), photos, stickers, likes, reposts and co-author | `200` |
+| `POST` | `/api/visits` | `{ restaurantId }` **or** `{ place: { placeId, name, address } }`, plus `{ date, rating, notes, dishes, category, isPublic, photoIds, coauthorId }`; each dish `{ name, price, score, description, sticker }` | Atomically saves a ticket, its items (score 0–12, note up to 500 characters, one owned sticker each), up to three owned photo references, the place's category, and an optional co-author invite (friends only). `isPublic` defaults to false. Any problem saves nothing. | `201` `{ restaurant, visit }` |
 | `PATCH` | `/api/visits/:id` | `{ isPublic }` | Shares or makes private one of the user's reviews | `200` |
 | `GET` / `PATCH` | `/api/profiles/me` | For PATCH: `{ name, handle, bio, topPickIds }` | Loads or updates the user's profile | `200` |
 | `GET` | `/api/profiles?q=...` | | Searches diner names and usernames | `200` |
-| `GET` | `/api/profiles/:id` | | Profile, recent shared reviews and reviewed restaurants | `200` |
+| `GET` | `/api/profiles/:id` | | Profile, reviews and accepted co-reviews you can see, reposts, reviewed restaurants and the stickers on the profile | `200` |
+| `GET` | `/api/profiles/friends` | | `{ friends, followBack, following }`: friends follow each other | `200` |
 | `GET` | `/api/profiles/:id/connections?type=followers` | | Follower list; use `type=following` for following | `200` |
 | `PUT` / `DELETE` | `/api/profiles/:id/follow` | | Follows/unfollows a diner idempotently | `200` |
-| `GET` | `/api/profiles/feed?scope=following` | | Latest shared reviews; `scope=discover` includes other diners | `200` |
+| `GET` | `/api/profiles/feed?scope=following` | | Latest shared reviews written, co-written or reposted by diners you follow (with `repostedBy`); `scope=discover` shows other diners' shared reviews | `200` |
+| `GET` | `/api/reviews/:id` | | One review the user may see (shared, theirs, or one they were invited to co-author) | `200` `{ review }` |
+| `PUT` / `DELETE` | `/api/reviews/:id/like` | | Likes or unlikes a review the user can see, idempotently | `200` `{ likeCount, liked, repostCount, reposted }` |
+| `PUT` / `DELETE` | `/api/reviews/:id/repost` | | Reposts or un-reposts someone else's shared review | `200` (same counts) |
+| `PUT` | `/api/reviews/:id/coauthor` | `{ userId }` | The author invites a friend to co-author (replaces a pending invite) | `200` `{ review }` |
+| `POST` | `/api/reviews/:id/coauthor/accept` | | The invited friend accepts | `200` `{ review }` |
+| `DELETE` | `/api/reviews/:id/coauthor` | | The author removes the co-author, or the friend declines or leaves | `200` |
+| `GET` | `/api/reviews/invites` | | Co-review invites waiting for the user's answer | `200` `{ invites }` |
 | `POST` | `/api/media` | Raw JPEG, `Content-Type: image/jpeg` | Uploads an owned photo to attach when submitting a review | `201` `{ id }` |
 | `PUT` | `/api/media/avatar` | Raw JPEG | Replaces the user's profile avatar | `200` `{ id }` |
 | `GET` / `DELETE` | `/api/media/:id` | | Reads a permitted photo or deletes an owned one | `200` |
-| `GET` | `/api/boxes` | | The user's boxes, each with its `restaurantIds` | `200` |
+| `GET` | `/api/boxes` | | The user's boxes, each with its `restaurantIds` and stickers | `200` |
 | `POST` | `/api/boxes` | `{ title }` | Makes an empty box (colours rotate) | `201` `{ box }` |
+| `PATCH` | `/api/boxes/:id` | `{ title?, description?, color? }` | Renames, describes or recolours a box; `color` is one of the five names or `#rrggbb` | `200` `{ box }` |
+| `GET` | `/api/stickers` | | The user's sticker book, newest first | `200` `{ stickers }` |
+| `POST` | `/api/stickers?style=pixel` | Raw PNG, `Content-Type: image/png` | Adds a sticker (`style`: `original`, `pixel`, `vector` or `translucent`); up to 60 per user | `201` `{ sticker }` |
+| `GET` / `DELETE` | `/api/stickers/:id/image`, `/api/stickers/:id` | | Reads a sticker the user may see, or deletes an owned one (peeling it off every card) | `200` |
+| `POST` | `/api/stickers/placements` | `{ stickerId, target: { type, id }, x, y, rotation, scale }` | Sticks an owned sticker on the user's own `profile`, `visit`, `box` or `dish` (x/y are 0–100 % of the card, tilt −45–45°, size 0.5–2) | `201` `{ placement }` |
+| `PATCH` / `DELETE` | `/api/stickers/placements/:id` | For PATCH: any of `{ x, y, rotation, scale }` | Moves, tilts, resizes or peels off one of the user's stickers | `200` |
 | `POST` | `/api/boxes/:id/restaurants` | `{ restaurantId }` | Files a restaurant in a box | `201`, or `200` if it was already there |
-| `GET` | `/api/places/autocomplete?q=jollibee` | | Asks Google Places for up to five places to eat matching `q` (2–100 characters). The backend adds the API key, so the browser never sees it. At most 30 searches a minute per user. | `200` `{ places: [{ placeId, name, address }] }` |
-| `GET` | `/api/places/:placeId/photo` | | Fresh Google photo lookup, up to 30 per user per minute. Returns safe public image/source links and author credits; never the API key or photo resource name. | `200` `{ photo: null }` or `{ photo: { url, sourceUrl, attributions } }` |
+| `GET` | `/api/places/autocomplete?q=jollibee` | | Asks Google Places for up to five places to eat matching `q` (2–100 characters). The backend adds the API key, so the browser never sees it. At most 30 searches a minute per user. | `200` `{ places: [{ placeId, name, address, category }] }` (`category` is a suggestion from Google's place types) |
+| `GET` | `/api/places/:placeId/photo` | | Fresh Google photo lookup, up to 30 per user per minute; `?size=large` asks for the wider image used on the ticket. Returns safe public image/source links and author credits; never the API key or photo resource name. | `200` `{ photo: null }` or `{ photo: { url, sourceUrl, attributions } }` |
 
 **Errors** are always JSON like `{"error":"Rating must be a whole number from 1 to 5."}`:
 
 | Status | When |
 | --- | --- |
-| `400` | Invalid input (rating not 1–5, no dishes or more than 20, blank names, price outside 0–10,000, a future or impossible date, an over-long text), or a body that is not valid JSON |
+| `400` | Invalid input (rating not 1–5, an item score that is not a whole number from 0 to 12, no dishes or more than 20, blank names, price outside ₱0–10,000, a future or impossible date, an over-long text, a box colour that is not a preset or `#rrggbb`, a sticker position out of range, a co-author who is not a friend, more stickers than allowed), or a body that is not valid JSON |
 | `401` | No login token, or an expired or tampered one |
-| `404` | The restaurant or box does not exist **or belongs to someone else** (the API never reveals which), or an unknown path |
-| `409` | A profile username is already taken |
-| `413` | JSON body over 20 KB or a JPEG upload over 750 KB |
+| `404` | The restaurant, box, sticker or review does not exist **or belongs to someone else / is private** (the API never reveals which), or an unknown path |
+| `409` | A profile username is already taken, or a review already has an accepted co-author |
+| `413` | JSON body over 64 KB, a JPEG upload over 750 KB or a sticker over 400 KB |
 | `429` | More than 30 Google searches or photo lookups a minute, or 30 photo uploads in ten minutes. `Retry-After` says how long to wait. |
 | `500` | Anything unexpected. Details are logged in the backend terminal only, never sent to the browser. |
 | `502` | Google did not answer or returned an error (Google's message is logged in the backend terminal only) |
@@ -279,7 +322,7 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 
 ### Not built yet
 
-Sharing a public box by link, editing a saved review's text/date/dishes, and deleting visits and boxes. Review visibility can already be changed.
+Sharing a public box by link, editing a saved review's text/date/items (item stickers can be changed), deleting visits and boxes, and notifications for likes, reposts and invites. Review visibility, box names/descriptions/colours, categories and stickers can already be changed.
 
 ### Verification
 
@@ -291,9 +334,9 @@ cd ../backend
 npm test
 ```
 
-Backend integration tests use real Postgres in a temporary schema and fixture authentication. Set `TEST_DATABASE_URL`, or configure `backend/.env`; the database role must be allowed to create schemas. The harness removes the temporary schema afterwards and does not modify real accounts or journals. Tests cover private/public review access, photo ownership, transactional saves, follows, profile validation, avatars and repeatable migrations. Separate Google-photo tests stub the upstream service to check authentication, timeouts, missing photos, attribution, unsafe links and key nonexposure without billed requests. Run only those with `node --test test/places.test.js` from `backend`. These tests do not test Neon signup or login.
+Backend integration tests use real Postgres in a temporary schema and fixture authentication. Set `TEST_DATABASE_URL`, or configure `backend/.env`; the database role must be allowed to create schemas. The harness removes the temporary schema afterwards and does not modify real accounts or journals. Tests cover private/public review access, photo ownership, transactional saves, follows, profile validation, avatars and repeatable migrations, plus item scores and notes (including the 0–12 range), categories, box editing, sticker ownership and visibility, likes, reposts, friends and co-reviews (`test/features.test.js`). Separate Google-photo tests stub the upstream service to check authentication, timeouts, missing photos, attribution, unsafe links and key nonexposure without billed requests. Run only those with `node --test test/places.test.js` from `backend`. These tests do not test Neon signup or login.
 
-For an isolated browser preview, run `node test/browser-preview.cjs` from `backend` and open `http://127.0.0.1:5173`. It uses real API routes and a temporary database schema with local fixture accounts; production authentication remains unchanged. Type `stop` in its terminal to clean up. Browser checks covered profile editing, avatar/review uploads, top picks, following, reload persistence and mobile layouts.
+For an isolated browser preview, run `node test/browser-preview.cjs` from `backend` and open `http://127.0.0.1:5173`. It uses real API routes and a temporary database schema with local fixture accounts; production authentication remains unchanged. Type `stop` in its terminal to clean up. Browser checks covered profile editing, avatar/review uploads, top picks, following, reload persistence and mobile layouts; for the item-review upgrade they also covered the ticket on its plate with a Google photo, item containers with scores and fire, making and placing stickers, box editing, the Friends page, invites, likes and reposts, at desktop and phone widths.
 
 ## 5. Project structure
 
@@ -311,20 +354,24 @@ Dishboxd/
 │       ├── App.jsx              Routes: log-in pages, and the journal pages behind the login check
 │       ├── index.css            Design tokens (@theme) and paper textures
 │       ├── components/
-│       │   ├── atoms/           Button, TextField, RatingCircle, StarRating, Stamp, Tag, ...
-│       │   ├── molecules/       GoogleButton, VisitLogCard, SearchResultItem, ManualPlaceForm, DishFormRow, ListCard, RestaurantCard
+│       │   ├── atoms/           Button, TextField, RatingCircle, StarRating, Stamp, Tag, Flames, ScoreBadge, CategoryTag,
+│       │   │                    StickerImage, TableSetting, ...
+│       │   ├── molecules/       GoogleButton, VisitLogCard, SearchResultItem, ManualPlaceForm, DishCard, ScoreInput, CategoryField, ReviewCard,
+│       │   │                    ReviewActions, CoauthorControls, CoauthorPicker, StickerLayer, StickerTray, StickerMaker, BoxColorPicker,
+│       │   │                    TicketPlacePhoto, ListCard, PersonCard, RestaurantCard
 │       │   └── organisms/       AuthGate (login check), AuthCard, Navbar, VisitLogFeed, SearchAutocomplete, DishEntryList, RestaurantHeader, ListGrid
-│       ├── pages/               Account pages, Home, Search, VisitForm, RestaurantProfile, Profile, People, Lists, ListDetail, NotFound
-│       ├── state/               JournalProvider + useJournal: restaurants, visits and boxes in memory (starts empty, one per account)
-│       └── lib/                 auth.js (Neon Auth client and error messages), api.js (calls the backend with the login token), formatting, and stats
+│       ├── pages/               Account pages, Home, Search, VisitForm, RestaurantProfile, Profile, Friends, ReviewPage, Lists, ListDetail, NotFound
+│       ├── state/               JournalProvider + useJournal: restaurants, visits, boxes and the sticker book in memory (starts empty, one per account)
+│       └── lib/                 auth.js, api.js (calls the backend with the login token), formatting (pesos), stats, scores, categories, colors,
+│                                stickers (in-browser sticker making), share, and hooks for sticker placements and Google place photos
 └── backend/                     Express API
     ├── server.js                Server setup, CORS, routes, error handling
     ├── auth.js                  requireUser: checks the Neon Auth token on every journal route
     ├── validate.js              Server-side input checks (text, numbers, prices, dates, ids)
     ├── db.js                    Postgres connection pool and a transaction helper
     ├── rateLimit.js             perUserLimit: caps how often one user can call a route (used on Google search)
-    ├── routes/                  restaurants.js, visits.js, boxes.js, places.js, profiles.js, media.js
-    ├── social.js                Profile/review query columns and response formatting
+    ├── routes/                  restaurants.js, visits.js, boxes.js, places.js, profiles.js, media.js, stickers.js, reviews.js
+    ├── social.js                Profile/review query columns, visibility rules and response formatting
     ├── test/                    Isolated Postgres integration checks and browser preview
     ├── database_setup.sql       CREATE TABLE commands (run with npm run db:setup)
     ├── setup-db.js              Runs database_setup.sql against DATABASE_URL
@@ -351,7 +398,10 @@ The app is deployed to Vercel. Accounts, journal forms, profiles, follows and ph
 - **Search leans toward Angeles City.** Without a location, Google favours places near the computer that asks, which would be the hosting company's data centre once deployed. So every search leans toward a 5 km circle around Angeles City (`SEARCH_AREA` in `backend/routes/places.js`). It is a bias, not a limit: places farther away still show up when their name matches, but someone searching from another city gets Angeles branches first.
 - **No menus from Google.** The Places API does not return menus or dishes, so a Google place links to its Google Maps page instead, and dish suggestions come only from your own past tickets.
 - **Photo availability depends on the source.** Search uses Google photos where available and your own review photos for saved restaurants. Manually added places need a review upload; Google errors show a retry action. Restaurant records and Tray photo cards use your own review uploads.
-- **No edit or delete** for saved review text/dishes or boxes. Review sharing can be changed; boxes remain private.
+- **No edit or delete** for saved review text/items or for boxes. Review sharing, box names/descriptions/colours, categories and stickers can be changed; boxes remain private.
+- **Stickers live in Postgres**, like photos: up to 60 per user at 400 KB each. Background cut-out works on plain backdrops; busy photos are kept whole (the preview shows the result before saving).
+- **Co-reviews have one co-author**, who must be a friend (both follow each other) and accept first. Shared review links open only for signed-in diners.
+- **Scores past 10 stop at 12.** Prices are pesos, up to ₱10,000 per item.
 - **Rate limits use server memory.** Google searches and photo uploads are limited per user, but their counters reset on restart and are not shared between Vercel instances. Other journal routes have no rate limit.
 - **Social lists are bounded.** Feeds/recent reviews show the latest 20 entries, reviewed restaurants up to 100, and each connection list up to 100. Pagination is a future improvement.
 - **The app's database role owns the tables.** It connects as Neon's default owner role rather than a role with only the permissions it needs (security checklist row 15).
@@ -371,4 +421,4 @@ The completed security checklist is kept in my private course workspace at `proj
 
 Claude Code (Anthropic's AI coding assistant) wrote most of the code in this project, and an AI chat tool helped me debug CORS in Week 1. What I asked for, what I kept or changed, where the AI got it wrong, and which code is mine are logged in [`AI-USAGE.md`](AI-USAGE.md).
 
-**Credit:** Claude Code generated most of the original frontend and backend. Codex implemented diner profiles, following, review/search photos and the Home/Tray redesigns, and ran the associated verification. I directed the features, manually set up external APIs and deployment, and researched problems Claude's troubleshooting did not resolve. An AI chat assistant helped with CORS; ChatGPT helped review the usage documentation. See [`AI-USAGE.md`](AI-USAGE.md) for decisions, corrections and contribution evidence.
+**Credit:** Claude Code generated most of the original frontend and backend, and the item-by-item reviews, categories, peso prices, fire effect, table setting, stickers, editable boxes, Friends page, likes, reposts and co-reviews. Codex implemented diner profiles, following, review/search photos and the Home/Tray redesigns, and ran the associated verification. I directed the features, manually set up external APIs and deployment, and researched problems Claude's troubleshooting did not resolve. An AI chat assistant helped with CORS; ChatGPT helped review the usage documentation. See [`AI-USAGE.md`](AI-USAGE.md) for decisions, corrections and contribution evidence.

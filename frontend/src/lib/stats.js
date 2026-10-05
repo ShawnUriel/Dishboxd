@@ -9,17 +9,24 @@ export function averageRating(visits) {
   return visits.reduce((sum, visit) => sum + visit.rating, 0) / visits.length
 }
 
-// Dishes ordered most often at one restaurant, e.g. [{ name, count: 3 }]
+// Dishes ordered most often at one restaurant, with their average score out of 10 when scored,
+// e.g. [{ name, count: 3, score: 9.3 }]. Ties go to the better-scored dish.
 export function topDishes(visits, limit = 3) {
-  const counts = new Map()
+  const tally = new Map()
   for (const visit of visits) {
     for (const dish of visit.dishes) {
-      counts.set(dish.name, (counts.get(dish.name) || 0) + 1)
+      const entry = tally.get(dish.name) ?? { name: dish.name, count: 0, total: 0, scored: 0 }
+      entry.count++
+      if (dish.score != null) {
+        entry.total += dish.score
+        entry.scored++
+      }
+      tally.set(dish.name, entry)
     }
   }
-  return [...counts.entries()]
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
+  return [...tally.values()]
+    .map(({ name, count, total, scored }) => ({ name, count, score: scored ? total / scored : null }))
+    .sort((a, b) => b.count - a.count || (b.score ?? -1) - (a.score ?? -1))
     .slice(0, limit)
 }
 

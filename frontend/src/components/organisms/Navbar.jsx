@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { FolderIcon, HomeIcon, SearchIcon, UserIcon } from '../atoms/Icon.jsx'
+import { FolderIcon, HomeIcon, SearchIcon, UserIcon, UsersIcon } from '../atoms/Icon.jsx'
 
 // Orange tab uses dark text: white on orange fails the 4.5:1 contrast check.
 const tabs = [
   { to: '/', label: 'Home', Icon: HomeIcon, color: 'bg-brand text-white', end: true },
   { to: '/search', label: 'Search', Icon: SearchIcon, color: 'bg-accent text-white' },
   { to: '/lists', label: 'Tray', Icon: FolderIcon, color: 'bg-tray text-ink' },
+  { to: '/friends', label: 'Friends', Icon: UsersIcon, color: 'bg-box-lavender text-ink' },
   { to: '/profile', label: 'Profile', Icon: UserIcon, color: 'bg-box-mint text-ink' },
 ]
 
@@ -24,7 +25,7 @@ export default function Navbar() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-2 rounded-t-xl py-3 font-mono text-xs font-semibold uppercase tracking-widest transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:ml-2.5 md:h-[102px] md:translate-y-0 md:rounded-t-none md:rounded-r-xl md:py-0 ${color} ${
+                `flex flex-col items-center justify-center gap-2 rounded-t-xl py-3 font-mono text-[10px] font-semibold uppercase tracking-wider transition-all sm:text-xs md:tracking-widest focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:ml-2.5 md:h-[102px] md:translate-y-0 md:rounded-t-none md:rounded-r-xl md:py-0 ${color} ${
                   isActive ? 'shadow-md md:w-20' : 'translate-y-1.5 hover:translate-y-0.5 md:w-[70px] md:hover:w-[74px]'
                 }`
               }

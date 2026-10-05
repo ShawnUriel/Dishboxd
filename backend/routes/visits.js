@@ -1,42 +1,20 @@
 const express = require('express')
 const { pool, transaction } = require('../db')
-const { ValidationError, text, optionalText, integer, money, visitDate, isUuid } = require('../validate')
-const { toRestaurant } = require('./restaurants')
+const { ValidationError, text, optionalText, integer, score, money, visitDate, isUuid } = require('../validate')
+const { reviewColumns, reviewFrom, toReview, loadReview, areFriends, ensureProfile } = require('../social')
+const { toRestaurant, readCategory } = require('./restaurants')
+const { readPlacement } = require('./stickers')
 
 const router = express.Router()
 const MAX_DISHES = 20
 
-function toVisit(row) {
-  return {
-    id: row.id,
-    restaurantId: row.restaurant_id,
-    date: row.visit_date,
-    rating: row.rating,
-    notes: row.notes,
-    dishes: row.dishes,
-    photoIds: row.photo_ids ?? [],
-    isPublic: row.is_public ?? false,
-  }
-}
-
 // GET /api/visits: the user's visits, newest first, each with its dishes in ticket order
 router.get('/', async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT v.id, v.restaurant_id, v.visit_date, v.rating, v.notes, v.is_public,
-            COALESCE((SELECT json_agg(m.id ORDER BY m.created_at, m.id) FROM media m WHERE m.visit_id = v.id), '[]') AS photo_ids,
-            COALESCE(
-              json_agg(json_build_object('name', d.name, 'price', d.price) ORDER BY d.position)
-                FILTER (WHERE d.id IS NOT NULL),
-              '[]'
-            ) AS dishes
-     FROM visit_logs v
-     LEFT JOIN dishes d ON d.visit_log_id = v.id
-     WHERE v.user_id = $1
-     GROUP BY v.id
-     ORDER BY v.visit_date DESC, v.created_at DESC`,
+    `SELECT ${reviewColumns} ${reviewFrom} WHERE v.user_id = $1 ORDER BY v.visit_date DESC, v.created_at DESC`,
     [req.userId],
   )
-  res.json({ visits: rows.map(toVisit) })
+  res.json({ visits: rows.map(toReview) })
 })
 
 // Check the whole ticket before touching the database
@@ -52,10 +30,19 @@ function readTicket(body) {
     date: visitDate(body.date),
     rating: integer(body.rating, 'Rating', { min: 1, max: 5 }),
     notes: optionalText(body.notes, 'Notes', { max: 2000 }),
-    dishes: body.dishes.map((dish, index) => ({
-      name: text(dish?.name, `Dish ${index + 1} name`, { min: 1, max: 80 }),
-      price: money(dish?.price ?? 0, `Dish ${index + 1} price`),
-    })),
+    // Each item is reviewed on its own: a score out of 10 (past 10 for the special ones),
+    // a short note, and optionally one sticker
+    dishes: body.dishes.map((dish, index) => {
+      const label = `Dish ${index + 1}`
+      return {
+        name: text(dish?.name, `${label} name`, { min: 1, max: 80 }),
+        price: money(dish?.price ?? 0, `${label} price`),
+        score: score(dish?.score, `${label} score`),
+        description: optionalText(dish?.description, `${label} note`, { max: 500 }),
+        sticker: dish?.sticker == null ? null : readPlacement(dish.sticker, `${label} sticker`),
+      }
+    }),
+    category: readCategory(body.category),
   }
 
   if (body.isPublic !== undefined && typeof body.isPublic !== 'boolean')
@@ -70,6 +57,8 @@ function readTicket(body) {
   ) {
     throw new ValidationError('Attach up to three different photos.')
   }
+  if (body.coauthorId != null && !isUuid(body.coauthorId)) throw new ValidationError('Choose a friend to invite.')
+  ticket.coauthorId = body.coauthorId ?? null
 
   // Either an existing restaurant (restaurantId) or a place to file (from search or added by hand)
   if (body.restaurantId !== undefined) {
@@ -87,11 +76,13 @@ function readTicket(body) {
   return ticket
 }
 
+const RESTAURANT_COLUMNS = 'id, number, google_place_id, name, address, category'
+
 // Find the restaurant this ticket belongs to, or file it if it is new.
 async function findOrFileRestaurant(client, userId, ticket) {
   if (ticket.restaurantId) {
     const { rows } = await client.query(
-      `SELECT id, number, google_place_id, name, address FROM restaurants WHERE id = $1 AND user_id = $2`,
+      `SELECT ${RESTAURANT_COLUMNS} FROM restaurants WHERE id = $1 AND user_id = $2`,
       [ticket.restaurantId, userId],
     )
     return rows[0] ?? null
@@ -100,12 +91,12 @@ async function findOrFileRestaurant(client, userId, ticket) {
   const { placeId, name, address } = ticket.place
   const existing = placeId
     ? await client.query(
-        `SELECT id, number, google_place_id, name, address
+        `SELECT ${RESTAURANT_COLUMNS}
          FROM restaurants WHERE user_id = $1 AND google_place_id = $2`,
         [userId, placeId],
       )
     : await client.query(
-        `SELECT id, number, google_place_id, name, address
+        `SELECT ${RESTAURANT_COLUMNS}
          FROM restaurants
          WHERE user_id = $1 AND google_place_id IS NULL
            AND lower(name) = lower($2) AND lower(address) = lower($3)`,
@@ -115,50 +106,92 @@ async function findOrFileRestaurant(client, userId, ticket) {
 
   // Next catalog number for this user (R-001, R-002, ...)
   const { rows } = await client.query(
-    `INSERT INTO restaurants (user_id, number, google_place_id, name, address)
-     SELECT $1, COALESCE(MAX(number), 0) + 1, $2, $3, $4 FROM restaurants WHERE user_id = $1
-     RETURNING id, number, google_place_id, name, address`,
-    [userId, placeId, name, address],
+    `INSERT INTO restaurants (user_id, number, google_place_id, name, address, category)
+     SELECT $1, COALESCE(MAX(number), 0) + 1, $2, $3, $4, $5 FROM restaurants WHERE user_id = $1
+     RETURNING ${RESTAURANT_COLUMNS}`,
+    [userId, placeId, name, address, ticket.category],
   )
   return rows[0]
 }
 
-// POST /api/visits: save one ticket (the visit and all its dishes) in a single transaction
+// POST /api/visits: save one ticket (the visit, its dishes, photos, stickers and an optional
+// co-author invite) in a single transaction. Any problem saves nothing.
 router.post('/', async (req, res) => {
   const ticket = readTicket(req.body)
+  if (ticket.coauthorId) {
+    if (ticket.coauthorId === req.userId) throw new ValidationError('You are already an author of this review.')
+    await ensureProfile(req.userId)
+  }
 
   const saved = await transaction(async (client) => {
     // One ticket at a time per user, so two tabs cannot hand out the same catalog number
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [req.userId])
 
-    const restaurant = await findOrFileRestaurant(client, req.userId, ticket)
+    let restaurant = await findOrFileRestaurant(client, req.userId, ticket)
     if (!restaurant) return null
+    // A category chosen on the ticket also sorts a place already on file
+    if (ticket.category && ticket.category !== restaurant.category) {
+      const updated = await client.query(
+        `UPDATE restaurants SET category = $3 WHERE id = $1 AND user_id = $2 RETURNING ${RESTAURANT_COLUMNS}`,
+        [restaurant.id, req.userId, ticket.category],
+      )
+      restaurant = updated.rows[0]
+    }
 
     const { rows } = await client.query(
       `INSERT INTO visit_logs (user_id, restaurant_id, visit_date, rating, notes, is_public)
        VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, restaurant_id, visit_date, rating, notes, is_public`,
+       RETURNING id`,
       [req.userId, restaurant.id, ticket.date, ticket.rating, ticket.notes, ticket.isPublic],
     )
-    await client.query(
-      `INSERT INTO dishes (visit_log_id, position, name, price)
-       SELECT $1, dish.position, dish.name, dish.price
-       FROM unnest($2::text[], $3::numeric[]) WITH ORDINALITY AS dish(name, price, position)`,
-      [rows[0].id, ticket.dishes.map((dish) => dish.name), ticket.dishes.map((dish) => dish.price)],
+    const visitId = rows[0].id
+    const dishes = await client.query(
+      `INSERT INTO dishes (visit_log_id, position, name, price, score, description)
+       SELECT $1, dish.position, dish.name, dish.price, dish.score, dish.description
+       FROM unnest($2::text[], $3::numeric[], $4::smallint[], $5::text[])
+         WITH ORDINALITY AS dish(name, price, score, description, position)
+       RETURNING id, position`,
+      [
+        visitId,
+        ticket.dishes.map((dish) => dish.name),
+        ticket.dishes.map((dish) => dish.price),
+        ticket.dishes.map((dish) => dish.score),
+        ticket.dishes.map((dish) => dish.description),
+      ],
     )
+    const dishIds = new Map(dishes.rows.map((row) => [Number(row.position), row.id]))
+    for (const [index, dish] of ticket.dishes.entries()) {
+      if (!dish.sticker) continue
+      const { stickerId, x, y, rotation, scale } = dish.sticker
+      const placed = await client.query(
+        `INSERT INTO sticker_placements (user_id, sticker_id, dish_id, x, y, rotation, scale)
+         SELECT $1, s.id, $3, $4, $5, $6, $7 FROM stickers s WHERE s.id = $2 AND s.user_id = $1`,
+        [req.userId, stickerId, dishIds.get(index + 1), x, y, rotation, scale],
+      )
+      if (placed.rowCount !== 1)
+        throw new ValidationError('One of your stickers is unavailable. Choose it again.')
+    }
     if (ticket.photoIds.length) {
       const attached = await client.query(
         `UPDATE media SET visit_id = $1 WHERE id = ANY($2::uuid[]) AND user_id = $3 AND kind = 'review' AND visit_id IS NULL`,
-        [rows[0].id, ticket.photoIds, req.userId],
+        [visitId, ticket.photoIds, req.userId],
       )
       if (attached.rowCount !== ticket.photoIds.length)
         throw new ValidationError('One of your photos is unavailable. Remove it and upload it again.')
     }
-    return { restaurant, visit: { ...rows[0], dishes: ticket.dishes, photo_ids: ticket.photoIds } }
+    if (ticket.coauthorId) {
+      if (!(await areFriends(req.userId, ticket.coauthorId, client)))
+        throw new ValidationError('You can invite friends only: someone you follow who follows you back.')
+      await client.query('INSERT INTO visit_coauthors (visit_id, user_id) VALUES ($1, $2)', [
+        visitId,
+        ticket.coauthorId,
+      ])
+    }
+    return { restaurant, visit: await loadReview(req.userId, visitId, client) }
   })
 
   if (!saved) return res.status(404).json({ error: 'Restaurant not found.' })
-  res.status(201).json({ restaurant: toRestaurant(saved.restaurant), visit: toVisit(saved.visit) })
+  res.status(201).json({ restaurant: toRestaurant(saved.restaurant), visit: saved.visit })
 })
 
 router.patch('/:id', async (req, res) => {

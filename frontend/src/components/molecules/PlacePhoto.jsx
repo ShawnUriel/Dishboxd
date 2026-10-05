@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Photo from '../atoms/Photo.jsx'
-import { api } from '../../lib/api.js'
+import { useGooglePlacePhoto } from '../../lib/useGooglePlacePhoto.js'
 
 export default function PlacePhoto({ place, photoId }) {
   if (photoId) {
@@ -23,9 +23,8 @@ export default function PlacePhoto({ place, photoId }) {
 function GooglePlacePhoto({ place }) {
   const frame = useRef(null)
   const [visible, setVisible] = useState(false)
-  const [result, setResult] = useState(null)
-  const [failed, setFailed] = useState(false)
-  const [attempt, setAttempt] = useState(0)
+  const [brokenImage, setBrokenImage] = useState(false)
+  const lookup = useGooglePlacePhoto(place.placeId, { enabled: visible })
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -38,34 +37,23 @@ function GooglePlacePhoto({ place }) {
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    if (!visible) return
-    const controller = new AbortController()
-    api(`/api/places/${encodeURIComponent(place.placeId)}/photo`, { signal: controller.signal })
-      .then((data) => {
-        if (!controller.signal.aborted) setResult(data)
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFailed(true)
-      })
-    return () => controller.abort()
-  }, [place.placeId, visible, attempt])
-
-  const photo = failed ? null : result?.photo
+  // Looked up only once the card scrolls into view, so a long result list costs nothing extra
+  const failed = lookup.failed || brokenImage
+  const loaded = lookup.photo !== undefined
+  const photo = failed ? null : lookup.photo
   const mapsUrl = photo?.sourceUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${encodeURIComponent(place.placeId)}`
 
   function retry() {
-    setResult(null)
-    setFailed(false)
-    setAttempt((value) => value + 1)
+    setBrokenImage(false)
+    lookup.retry()
   }
 
   return (
     <figure ref={frame} className="w-24 shrink-0 sm:w-32">
       {photo ? (
-        <img src={photo.url} alt={`${place.name} on Google Maps`} onError={() => setFailed(true)} className="aspect-square w-full rounded-lg object-cover" />
+        <img src={photo.url} alt={`${place.name} on Google Maps`} onError={() => setBrokenImage(true)} className="aspect-square w-full rounded-lg object-cover" />
       ) : (
-        <PhotoPlaceholder name={place.name} loading={visible && !result && !failed} />
+        <PhotoPlaceholder name={place.name} loading={visible && !loaded && !failed} />
       )}
       <figcaption className="relative z-20 mt-2 space-y-1 break-words text-[11px] leading-5 text-muted">
         {photo ? (
@@ -82,7 +70,7 @@ function GooglePlacePhoto({ place }) {
             <span className="block">Photo unavailable</span>
             <button type="button" onClick={retry} aria-label={`Retry photo for ${place.name}`} className="text-accent underline underline-offset-2">Retry photo</button>
           </>
-        ) : result ? 'No photo available' : 'Finding photo…'}
+        ) : loaded ? 'No photo available' : 'Finding photo…'}
       </figcaption>
     </figure>
   )

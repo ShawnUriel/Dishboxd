@@ -28,6 +28,21 @@ function integer(value, field, { min, max }) {
   return value
 }
 
+// An item's score out of 10. It may go past 10, up to 12, for a dish that was that good.
+const MAX_SCORE = 12
+
+function score(value, field) {
+  if (value === undefined || value === null || value === '') return null
+  return integer(value, field, { min: 0, max: MAX_SCORE })
+}
+
+function number(value, field, { min, max }) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+    throw new ValidationError(`${field} must be a number from ${min} to ${max}.`)
+  }
+  return value
+}
+
 function money(value, field) {
   const amount = Number(value)
   if (value === '' || value === null || !Number.isFinite(amount) || amount < 0 || amount > 10000) {
@@ -56,4 +71,4 @@ function isUuid(value) {
   return typeof value === 'string' && UUID_PATTERN.test(value)
 }
 
-module.exports = { ValidationError, text, optionalText, integer, money, visitDate, isUuid }
+module.exports = { ValidationError, MAX_SCORE, text, optionalText, integer, score, number, money, visitDate, isUuid }

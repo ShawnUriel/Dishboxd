@@ -1,5 +1,5 @@
-// Money input with a "$" in front. On leaving the field it tidies the value
-// to two decimals between 0 and 10,000, e.g. "4.5" becomes "4.50".
+// Price in pesos, with "₱" in front. On leaving the field it tidies the value
+// to two decimals between 0 and 10,000, e.g. "95.5" becomes "95.50".
 export default function PriceInput({ value, onChange, label }) {
   function tidy() {
     if (value === '') return
@@ -9,7 +9,7 @@ export default function PriceInput({ value, onChange, label }) {
 
   return (
     <label className="flex shrink-0 items-center font-mono text-sm">
-      <span aria-hidden="true">$</span>
+      <span aria-hidden="true">₱</span>
       <span className="sr-only">{label}</span>
       <input
         type="number"
@@ -17,11 +17,11 @@ export default function PriceInput({ value, onChange, label }) {
         min="0"
         max="10000"
         step="0.01"
-        placeholder="__.__"
+        placeholder="0.00"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onBlur={tidy}
-        className="no-spinner w-16 border-b border-transparent bg-transparent text-right placeholder:text-faint focus:border-brand focus:outline-none"
+        className="no-spinner w-20 border-b border-transparent bg-transparent text-right placeholder:text-faint focus:border-brand focus:outline-none"
       />
     </label>
   )

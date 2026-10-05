@@ -1,5 +1,5 @@
 -- Dishboxd tables. Run with: npm run db:setup (from the backend folder).
--- Safe to run again: every statement uses IF NOT EXISTS.
+-- Safe to run again: every statement uses IF NOT EXISTS, or drops and re-adds the same constraint.
 --
 -- Accounts live in Neon Auth's own schema (neon_auth."user"). Every row here belongs
 -- to one of those users, and deleting a user deletes their whole journal (ON DELETE CASCADE).
@@ -104,3 +104,82 @@ CREATE INDEX IF NOT EXISTS follows_following_idx ON follows (following_id, creat
 CREATE INDEX IF NOT EXISTS media_user_idx ON media (user_id);
 CREATE INDEX IF NOT EXISTS media_visit_idx ON media (visit_id);
 CREATE INDEX IF NOT EXISTS visits_public_idx ON visit_logs (user_id, created_at DESC) WHERE is_public;
+
+-- Additive migration for item reviews, categories, stickers and review reactions.
+-- Old dishes keep a NULL score, old restaurants an empty category, and old boxes their colour.
+
+-- Each place has a category (Cafe, Matcha bar, Italian…). Free text, suggested by the app.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '' CHECK (length(category) <= 40);
+
+-- Every item on a ticket gets its own score out of 10, and its own note. A score can go
+-- past 10 (up to 12) for a dish that was that good; the app sets those on fire.
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS score SMALLINT CHECK (score BETWEEN 0 AND 12);
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '' CHECK (length(description) <= 500);
+
+-- Box colours: one of the original five names, or any #rrggbb colour chosen in the app.
+ALTER TABLE boxes DROP CONSTRAINT IF EXISTS boxes_color_check;
+ALTER TABLE boxes ADD CONSTRAINT boxes_color_check
+  CHECK (color IN ('orange', 'mint', 'lavender', 'pink', 'plum') OR color ~ '^#[0-9a-f]{6}$');
+
+-- Stickers: small transparent PNGs a user makes from their own images in the browser.
+CREATE TABLE IF NOT EXISTS stickers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  style TEXT NOT NULL CHECK (style IN ('original', 'pixel', 'vector', 'translucent')),
+  data BYTEA NOT NULL CHECK (octet_length(data) BETWEEN 8 AND 400000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS stickers_user_idx ON stickers (user_id, created_at DESC);
+
+-- Where a sticker is stuck: exactly one profile, review, box or dish, always the placer's own.
+-- x and y are percentages of the card, so stickers stay put at any screen width.
+CREATE TABLE IF NOT EXISTS sticker_placements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  sticker_id UUID NOT NULL,
+  profile_id UUID REFERENCES profiles(user_id) ON DELETE CASCADE,
+  visit_id UUID REFERENCES visit_logs(id) ON DELETE CASCADE,
+  box_id UUID,
+  dish_id UUID REFERENCES dishes(id) ON DELETE CASCADE,
+  x REAL NOT NULL CHECK (x BETWEEN 0 AND 100),
+  y REAL NOT NULL CHECK (y BETWEEN 0 AND 100),
+  rotation SMALLINT NOT NULL DEFAULT 0 CHECK (rotation BETWEEN -45 AND 45),
+  scale REAL NOT NULL DEFAULT 1 CHECK (scale BETWEEN 0.5 AND 2),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (num_nonnulls(profile_id, visit_id, box_id, dish_id) = 1),
+  CHECK (profile_id IS NULL OR profile_id = user_id),
+  FOREIGN KEY (sticker_id, user_id) REFERENCES stickers (id, user_id) ON DELETE CASCADE,
+  FOREIGN KEY (box_id, user_id) REFERENCES boxes (id, user_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS sticker_placements_sticker_idx ON sticker_placements (sticker_id);
+CREATE INDEX IF NOT EXISTS sticker_placements_profile_idx ON sticker_placements (profile_id) WHERE profile_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS sticker_placements_visit_idx ON sticker_placements (visit_id) WHERE visit_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS sticker_placements_box_idx ON sticker_placements (box_id) WHERE box_id IS NOT NULL;
+-- One sticker per dish
+CREATE UNIQUE INDEX IF NOT EXISTS sticker_placements_dish_idx ON sticker_placements (dish_id) WHERE dish_id IS NOT NULL;
+
+-- Likes and reposts on reviews. Each diner can like or repost a review once.
+CREATE TABLE IF NOT EXISTS review_likes (
+  visit_id UUID NOT NULL REFERENCES visit_logs(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (visit_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS review_reposts (
+  visit_id UUID NOT NULL REFERENCES visit_logs(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (visit_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS review_reposts_user_idx ON review_reposts (user_id, created_at DESC);
+
+-- A co-review: the author invites one friend, who becomes a second author after accepting.
+CREATE TABLE IF NOT EXISTS visit_coauthors (
+  visit_id UUID PRIMARY KEY REFERENCES visit_logs(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
+  invited_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  accepted_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS visit_coauthors_user_idx ON visit_coauthors (user_id, status);

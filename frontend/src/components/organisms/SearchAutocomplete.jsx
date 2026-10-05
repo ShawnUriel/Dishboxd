@@ -3,6 +3,7 @@ import { SearchIcon } from '../atoms/Icon.jsx'
 import ManualPlaceForm from '../molecules/ManualPlaceForm.jsx'
 import SearchResultItem from '../molecules/SearchResultItem.jsx'
 import { api } from '../../lib/api.js'
+import { categoryCounts, categoryName } from '../../lib/categories.js'
 import { newestFirst } from '../../lib/stats.js'
 import { useJournal } from '../../state/useJournal.js'
 
@@ -13,9 +14,11 @@ const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase()
 // 1. restaurants already ON FILE whose name or address matches,
 // 2. Google Maps places to eat that match (an exact name match goes first; Enter picks it),
 // 3. a NEW card to add the typed name by hand, for places not on Google Maps.
-export default function SearchAutocomplete({ onSelect }) {
+export default function SearchAutocomplete({ onSelect, initialCategory = '' }) {
   const { restaurants, visits } = useJournal()
   const [query, setQuery] = useState('')
+  const [category, setCategory] = useState(initialCategory)
+  const categories = categoryCounts(restaurants)
   const [google, setGoogle] = useState({ query: '', places: [], error: '' })
 
   const search = query.trim()
@@ -41,8 +44,10 @@ export default function SearchAutocomplete({ onSelect }) {
     }
   }, [search])
 
-  const onFile = restaurants.filter((restaurant) =>
-    `${restaurant.name} ${restaurant.address}`.toLowerCase().includes(search.toLowerCase()),
+  const onFile = restaurants.filter(
+    (restaurant) =>
+      (!category || categoryName(restaurant) === category) &&
+      `${restaurant.name} ${restaurant.address} ${restaurant.category}`.toLowerCase().includes(search.toLowerCase()),
   )
   // If the typed name is exactly one already on file, use its ON FILE card instead of adding a duplicate
   const exactOnFile = restaurants.find((restaurant) => sameName(restaurant.name, search))
@@ -88,6 +93,23 @@ export default function SearchAutocomplete({ onSelect }) {
           <p className="mt-2 font-mono text-xs text-muted">{google.error} You can still add it yourself below.</p>
         )}
       </div>
+
+      {categories.length > 0 && (
+        <div className="mt-5 flex flex-wrap items-center gap-2" role="group" aria-label="Show places on file by category">
+          <span className="mr-1 font-mono text-[10px] uppercase tracking-widest text-muted">On file by category</span>
+          {[{ name: '', count: restaurants.length }, ...categories].map(({ name, count }) => (
+            <button
+              key={name || 'all'}
+              type="button"
+              aria-pressed={category === name}
+              onClick={() => setCategory(name)}
+              className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${category === name ? 'border-accent bg-accent text-white' : 'border-line bg-card text-muted hover:border-accent hover:text-accent'}`}
+            >
+              {name || 'All places'} <span className="opacity-70">{count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <p className="sr-only" aria-live="polite">
         {onFile.length} on file{googleIsCurrent && `, ${sortedGoogle.length} from Google Maps`}

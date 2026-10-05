@@ -23,8 +23,8 @@ export default function PersonCard({ person, currentUserId, onChange }) {
   }
   return (
     <article className="paper-card p-4">
-      <div className="flex items-center gap-3">
-        <Link to={`/profile/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Link to={`/profile/${person.id}`} className="flex min-w-[10rem] flex-1 items-center gap-3">
           <Photo
             id={person.avatarId}
             alt={`${person.name}'s profile photo`}
@@ -34,6 +34,17 @@ export default function PersonCard({ person, currentUserId, onChange }) {
           <div className="min-w-0">
             <h3 className="truncate font-serif text-lg font-semibold">{person.name}</h3>
             <p className="truncate text-xs text-muted">@{person.handle}</p>
+            {person.isFriend ? (
+              <span className="mt-1 inline-block whitespace-nowrap rounded-full bg-box-lavender/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink">
+                Friends
+              </span>
+            ) : (
+              person.followsYou && (
+                <span className="mt-1 inline-block whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted">
+                  Follows you
+                </span>
+              )
+            )}
           </div>
         </Link>
         {person.id !== currentUserId && (
@@ -44,7 +55,7 @@ export default function PersonCard({ person, currentUserId, onChange }) {
             onClick={follow}
             aria-pressed={person.isFollowing}
           >
-            {busy ? '…' : person.isFollowing ? 'Following' : 'Follow'}
+            {busy ? '…' : person.isFollowing ? 'Following' : person.followsYou ? 'Follow back' : 'Follow'}
           </Button>
         )}
       </div>

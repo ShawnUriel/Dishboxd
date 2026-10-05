@@ -161,7 +161,8 @@ export default function Lists() {
           <span className="mt-1 text-accent"><FolderIcon /></span>
           <p className="max-w-xl text-xs leading-6 text-muted">
             <strong className="font-medium text-ink">A place for every kind of good meal.</strong><br />
-            Open a restaurant in your journal and choose “File in a box” to add it to a collection.
+            Open a restaurant in your journal and choose “File in a box” to add it to a collection. Open a box to
+            change its description and colour, or decorate it with stickers.
           </p>
         </div>
         <Link to="/search" className="shrink-0 text-xs font-medium text-accent underline underline-offset-4">Find a restaurant <span aria-hidden="true">↗</span></Link>

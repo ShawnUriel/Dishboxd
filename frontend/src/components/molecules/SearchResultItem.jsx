@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import CategoryTag from '../atoms/CategoryTag.jsx'
 import CodeBadge from '../atoms/CodeBadge.jsx'
 import PlacePhoto from './PlacePhoto.jsx'
 import Tag from '../atoms/Tag.jsx'
@@ -22,6 +23,7 @@ export default function SearchResultItem({ place, restaurant, photoId, onSelect,
       <div className="flex items-start gap-4 p-4 sm:gap-6 sm:p-5">
         <PlacePhoto place={place} photoId={photoId} />
         <div className="min-w-0 flex-1 py-1">
+          <CategoryTag category={restaurant?.category || place.category} className="mb-1.5" />
           <h3 id={labelId} className="break-words font-serif text-xl font-semibold leading-snug sm:text-2xl">{place.name}</h3>
           {place.address && <p className="mt-2 break-words text-xs leading-6 text-muted sm:text-sm">{place.address}</p>}
           <div className="mt-4 flex flex-wrap items-center gap-3">

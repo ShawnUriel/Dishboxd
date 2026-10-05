@@ -1,11 +1,44 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import CategoryTag from '../atoms/CategoryTag.jsx'
+import Flames from '../atoms/Flames.jsx'
+import { StickerIcon } from '../atoms/Icon.jsx'
 import Photo from '../atoms/Photo.jsx'
-import { formatDate } from '../../lib/format.js'
+import ScoreBadge from '../atoms/ScoreBadge.jsx'
+import StickerImage from '../atoms/StickerImage.jsx'
+import CoauthorControls from './CoauthorControls.jsx'
+import ReviewActions from './ReviewActions.jsx'
+import StickerLayer from './StickerLayer.jsx'
+import StickerTray from './StickerTray.jsx'
+import { formatDate, formatMoney } from '../../lib/format.js'
+import { fireLevel, hottestScore, isOnFire } from '../../lib/scores.js'
+import { visitTotal } from '../../lib/stats.js'
+import { useStickerPlacements } from '../../lib/useStickerPlacements.js'
 
-export default function ReviewCard({ review, restaurant = review.restaurant, own = false, onShare }) {
+// One review: who wrote it, where, every item with its own score, the notes and photos,
+// stickers, and likes / reposts / sharing. Any item past 10 sets the whole card on fire.
+// `own` is the author's view: sharing, co-authors and stickers can be changed there.
+// Changes reach the page as a partial review through onChange.
+export default function ReviewCard({
+  review,
+  restaurant = review.restaurant,
+  own = false,
+  showAuthor = !own,
+  currentUserId,
+  onShare,
+  onChange,
+}) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [decorating, setDecorating] = useState(false)
+  const stickers = useStickerPlacements({ type: 'visit', id: review.id }, review.stickers ?? [], (next) =>
+    onChange?.({ id: review.id, stickers: next }),
+  )
+  const level = fireLevel(hottestScore(review))
+  const coauthor = review.coauthor?.status === 'accepted' ? review.coauthor : null
+  const authors = [review.author, coauthor].filter(Boolean)
+  const isAuthor = own || (currentUserId && review.author?.id === currentUserId)
+
   async function toggleShare() {
     setSaving(true)
     setError('')
@@ -17,28 +50,54 @@ export default function ReviewCard({ review, restaurant = review.restaurant, own
       setSaving(false)
     }
   }
+
   return (
-    <article className="paper-card p-5 sm:p-6">
-      {review.author && (
-        <Link
-          to={`/profile/${review.author.id}`}
-          className="mb-4 flex w-fit items-center gap-3 text-sm hover:text-brand"
-        >
-          <Photo
-            id={review.author.avatarId}
-            alt={`${review.author.name}'s avatar`}
-            fallback={review.author.name.slice(0, 1)}
-            className="size-9 rounded-full"
-          />
-          <span>
-            {review.author.name}
-            <span className="block text-xs text-muted">@{review.author.handle}</span>
-          </span>
-        </Link>
+    <article className={`paper-card relative p-5 sm:p-6 ${level ? 'on-fire pb-16 sm:pb-16' : ''}`}>
+      {review.repostedBy && (
+        <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
+          ↻ Reposted by{' '}
+          <Link to={`/profile/${review.repostedBy.id}`} className="underline underline-offset-4">
+            {review.repostedBy.name}
+          </Link>
+        </p>
+      )}
+      {showAuthor && authors.length > 0 && (
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex -space-x-2">
+            {authors.map((author) => (
+              <Link key={author.id} to={`/profile/${author.id}`} className="rounded-full ring-2 ring-card">
+                <Photo
+                  id={author.avatarId}
+                  alt={`${author.name}'s avatar`}
+                  fallback={author.name.slice(0, 1)}
+                  className="size-9 rounded-full"
+                />
+              </Link>
+            ))}
+          </div>
+          <p className="min-w-0 text-sm">
+            {authors.map((author, index) => (
+              <span key={author.id}>
+                {index > 0 && <span className="text-muted"> &amp; </span>}
+                <Link to={`/profile/${author.id}`} className="hover:text-brand">
+                  {author.name}
+                </Link>
+              </span>
+            ))}
+            <span className="block text-xs text-muted">
+              @{review.author?.handle}
+              {coauthor && ` · a co-review with @${coauthor.handle}`}
+            </span>
+          </p>
+        </div>
       )}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="mb-1 text-xs uppercase tracking-wider text-muted">{formatDate(review.date)}</p>
+          <p className="mb-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wider text-muted">
+            {formatDate(review.date)}
+            <CategoryTag category={restaurant?.category} />
+            {level > 0 && <span className="fire-stamp">On fire</span>}
+          </p>
           {own && restaurant ? (
             <Link
               to={`/restaurant/${restaurant.id}`}
@@ -54,13 +113,45 @@ export default function ReviewCard({ review, restaurant = review.restaurant, own
           {restaurant?.address && <p className="mt-1 text-xs text-muted">{restaurant.address}</p>}
         </div>
         <span
-          className="shrink-0 rounded-full border border-brand/25 px-3 py-2 text-sm font-semibold text-brand"
-          aria-label={`${review.rating} out of 5 stars`}
+          className="shrink-0 rounded-full border border-brand/25 bg-card px-3 py-2 text-sm font-semibold text-brand"
+          aria-label={`${review.rating} out of 5 stars overall`}
         >
           ★ {review.rating}
         </span>
       </div>
-      <p className="mt-3 text-sm text-muted">{review.dishes.map((d) => d.name).join(' · ')}</p>
+
+      <ul className="mt-4 border-y border-dashed border-line">
+        {review.dishes.map((dish, index) => (
+          <li
+            key={dish.id ?? `${dish.name}-${index}`}
+            className={`flex items-start gap-3 border-b border-dashed border-line py-2.5 last:border-b-0 ${isOnFire(dish.score) ? 'dish-line-fire' : ''}`}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2 font-mono text-sm">
+                <span className="min-w-0 break-words">{dish.name}</span>
+                <span className="leader" aria-hidden="true" />
+                <span className="shrink-0 text-muted">{formatMoney(dish.price)}</span>
+              </div>
+              {dish.description && (
+                <p className="mt-1 break-words text-xs italic leading-5 text-muted">“{dish.description}”</p>
+              )}
+            </div>
+            <ScoreBadge score={dish.score} size="sm" />
+            {dish.sticker && (
+              <span className="w-9 shrink-0" style={{ transform: `rotate(${dish.sticker.rotation}deg)` }}>
+                <StickerImage id={dish.sticker.stickerId} className="w-full" />
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 flex justify-between font-mono text-xs text-muted">
+        <span>
+          {review.dishes.length} {review.dishes.length === 1 ? 'item' : 'items'}
+        </span>
+        <span>Total {formatMoney(visitTotal(review))}</span>
+      </p>
+
       {review.notes && (
         <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{review.notes}</p>
       )}
@@ -78,26 +169,53 @@ export default function ReviewCard({ review, restaurant = review.restaurant, own
           ))}
         </div>
       )}
-      {own && onShare && (
-        <div className="mt-4 flex items-center justify-between border-t border-dashed border-line pt-3 text-xs">
-          <span className="text-muted">
-            {review.isPublic ? 'Shared on your profile' : 'Just for your journal'}
-          </span>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={toggleShare}
-            className="text-accent underline underline-offset-4 disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : review.isPublic ? 'Make private' : 'Share on profile'}
-          </button>
-        </div>
-      )}
-      {error && (
+
+      <div className="mt-4 space-y-3 border-t border-dashed border-line pt-3">
+        {review.isPublic && (
+          <ReviewActions review={review} canRepost={!isAuthor && review.coauthor?.id !== currentUserId} onChange={onChange} />
+        )}
+        <CoauthorControls review={review} own={own} currentUserId={currentUserId} onChange={onChange} />
+        {own && (
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span className="text-muted">{review.isPublic ? 'Shared on your profile' : 'Just for your journal'}</span>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setDecorating(!decorating)}
+                aria-expanded={decorating}
+                className="flex items-center gap-1.5 text-accent underline underline-offset-4"
+              >
+                <StickerIcon /> {decorating ? 'Done decorating' : 'Stickers'}
+              </button>
+              {onShare && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={toggleShare}
+                  className="text-accent underline underline-offset-4 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : review.isPublic ? 'Make private' : 'Share on profile'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {own && decorating && <StickerTray onPick={stickers.add} onClose={() => setDecorating(false)} />}
+      </div>
+      {(error || stickers.error) && (
         <p role="alert" className="mt-3 text-sm text-brand">
-          {error}
+          {error || stickers.error}
         </p>
       )}
+      <StickerLayer
+        placements={stickers.placements}
+        size={58}
+        editing={own && decorating}
+        onUpdate={stickers.update}
+        onRemove={stickers.remove}
+        label="Stickers on this review"
+      />
+      {level > 0 && <Flames level={level} />}
     </article>
   )
 }

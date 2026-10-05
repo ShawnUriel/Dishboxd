@@ -96,6 +96,18 @@ test('Google restaurant photos use fresh resources and safe public responses', a
     assert.equal(requests.length, 2, 'Repeated lookup must fetch a new photo resource')
   })
 
+  await t.test('the entry ticket can ask for a wider photo; any other size value is ignored', async () => {
+    const details = { photos: [{ name: PHOTO_NAME }] }
+    for (const [query, width] of [['?size=large', 800], ['?size=huge', 400], ['?size=800', 400], ['', 400]]) {
+      upstream(json(details), json({ photoUri: IMAGE_URL }))
+      const response = await realFetch(`${origin}/api/places/${PLACE_ID}/photo${query}`, {
+        headers: { Authorization: `size-check${query}` },
+      })
+      assert.equal(response.status, 200)
+      assert.equal(requests[1].url, `https://places.googleapis.com/v1/${PHOTO_NAME}/media?maxWidthPx=${width}&skipHttpRedirect=true`)
+    }
+  })
+
   await t.test('a place without photos returns null and does not call the media endpoint', async () => {
     for (const details of [{}, { photos: [] }]) {
       upstream(json(details))

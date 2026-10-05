@@ -21,6 +21,8 @@ const { router: boxesRouter } = require('./routes/boxes')
 const { router: placesRouter } = require('./routes/places')
 const { router: profilesRouter } = require('./routes/profiles')
 const { router: mediaRouter } = require('./routes/media')
+const { router: stickersRouter } = require('./routes/stickers')
+const { router: reviewsRouter } = require('./routes/reviews')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -28,7 +30,8 @@ const PORT = process.env.PORT || 5000
 // Only the Dishboxd website may call the API, not every website (no "*" wildcard)
 const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 app.use(cors({ origin: allowedOrigin }))
-app.use(express.json({ limit: '20kb' }))
+// A ticket with 20 items, each with its own note, fits comfortably in 64 KB
+app.use(express.json({ limit: '64kb' }))
 
 // Test route to prove the server is running and CORS is working
 app.get('/api/test', (req, res) => {
@@ -42,6 +45,8 @@ app.use('/api/boxes', requireUser, boxesRouter)
 app.use('/api/places', requireUser, placesRouter)
 app.use('/api/profiles', requireUser, profilesRouter)
 app.use('/api/media', requireUser, mediaRouter)
+app.use('/api/stickers', requireUser, stickersRouter)
+app.use('/api/reviews', requireUser, reviewsRouter)
 
 // Unknown routes get a plain 404 instead of Express's default HTML page
 app.use((req, res) => {

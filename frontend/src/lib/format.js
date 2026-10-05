@@ -1,7 +1,10 @@
 // Small helpers for showing numbers and dates the same way on every screen.
 
+// Prices are in Philippine pesos: ₱1,250.00
+const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
+
 export function formatMoney(amount) {
-  return `$${Number(amount || 0).toFixed(2)}`
+  return peso.format(Number(amount || 0))
 }
 
 export function formatRating(rating, decimals = 1) {
