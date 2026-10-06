@@ -8,6 +8,7 @@ import TableSetting from '../components/atoms/TableSetting.jsx'
 import { FolderIcon } from '../components/atoms/Icon.jsx'
 import CategoryField from '../components/molecules/CategoryField.jsx'
 import CoauthorPicker from '../components/molecules/CoauthorPicker.jsx'
+import RestaurantNameField from '../components/molecules/RestaurantNameField.jsx'
 import TicketPlacePhoto from '../components/molecules/TicketPlacePhoto.jsx'
 import DishEntryList from '../components/organisms/DishEntryList.jsx'
 import { api } from '../lib/api.js'
@@ -35,6 +36,8 @@ export default function VisitForm() {
   const [name, setName] = useState(initialPlace?.name ?? '')
   const [address, setAddress] = useState(initialPlace?.address ?? '')
   const [restaurantId, setRestaurantId] = useState(initialPlace?.restaurantId ?? '')
+  // The Google Maps place picked for this ticket (also when arriving from Search)
+  const [googlePlace, setGooglePlace] = useState(() => (initialPlace?.placeId && !initialPlace.restaurantId ? initialPlace : null))
   const [category, setCategory] = useState(
     () => restaurants.find((r) => r.id === initialPlace?.restaurantId)?.category || initialPlace?.category || '',
   )
@@ -54,16 +57,13 @@ export default function VisitForm() {
   const selectedBox = boxes.find((box) => box.id === boxId)
   const boxEditorOpen = addingBox || !boxes.length
   const existing = restaurants.find((r) => r.id === restaurantId)
-  // Typing the name of a place already in the journal offers to log this visit under it
-  const savedMatch = existing
-    ? null
-    : restaurants.find((r) => name.trim() && r.name.toLowerCase() === name.trim().toLowerCase())
   const place = existing
     ? { restaurantId: existing.id, name: existing.name, address: existing.address, placeId: existing.placeId }
     : {
         name: name.trim(),
         address: address.trim(),
-        placeId: name === initialPlace?.name ? (initialPlace?.placeId ?? null) : null,
+        // Editing the name after picking a Google place makes it a place added by hand
+        placeId: googlePlace && name === googlePlace.name ? googlePlace.placeId : null,
       }
   const suggestions = restaurantId
     ? dishSuggestions(visits.filter((v) => v.restaurantId === restaurantId))
@@ -87,6 +87,20 @@ export default function VisitForm() {
   else if (!rating) problem = 'Pick an overall rating (1 to 5 stars).'
   else if (!filledDishes.length) problem = 'Add at least one item.'
   else if (!date || date > todayIso()) problem = 'Choose the day of your visit, up to today.'
+
+  // A Google Maps place: fills in the name, address and suggested category; its photo then
+  // appears across the top of the ticket. One already in the journal is used as that saved place.
+  function chooseGooglePlace(found) {
+    const filed = restaurants.find((r) => r.placeId === found.placeId)
+    if (filed) {
+      chooseSavedPlace(filed)
+      return
+    }
+    setGooglePlace(found)
+    setName(found.name)
+    setAddress(found.address ?? '')
+    setCategory((current) => (!current || current === googlePlace?.category ? found.category || current : current))
+  }
 
   // Log this visit under a place already in the journal (or, with null, a new one)
   function chooseSavedPlace(saved) {
@@ -284,28 +298,14 @@ export default function VisitForm() {
                 </p>
               ) : (
                 <>
-                  <div>
-                    <TextField
-                      id="restaurant-name"
-                      label="Restaurant name"
+                  <div className="sm:col-span-2">
+                    <RestaurantNameField
                       value={name}
-                      maxLength={100}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Where did you eat?"
-                      required
+                      onChange={setName}
+                      restaurants={restaurants}
+                      onPickGoogle={chooseGooglePlace}
+                      onPickSaved={chooseSavedPlace}
                     />
-                    {savedMatch && (
-                      <p className="mt-1 font-mono text-xs text-muted">
-                        Already in your journal.{' '}
-                        <button
-                          type="button"
-                          onClick={() => chooseSavedPlace(savedMatch)}
-                          className="text-accent underline underline-offset-4"
-                        >
-                          Use it
-                        </button>
-                      </p>
-                    )}
                   </div>
                   <TextField
                     id="restaurant-address"
@@ -317,13 +317,6 @@ export default function VisitForm() {
                   />
                 </>
               )}
-              <div className="sm:col-span-2">
-                <CategoryField
-                  value={category}
-                  onChange={setCategory}
-                  hint={existing ? 'Changing it here also updates this saved place.' : undefined}
-                />
-              </div>
               <TextField
                 id="visit-date"
                 label="Day of your visit"
@@ -333,11 +326,13 @@ export default function VisitForm() {
                 onChange={(e) => setDate(e.target.value)}
                 required
               />
-              <p className="self-end pb-2 text-xs text-muted">
-                <Link to="/search" className="text-accent underline underline-offset-4">
-                  Find a restaurant on Google Maps ↗
-                </Link>
-              </p>
+              <div className="sm:col-span-2">
+                <CategoryField
+                  value={category}
+                  onChange={setCategory}
+                  hint={existing ? 'Changing it here also updates this saved place.' : undefined}
+                />
+              </div>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-y border-dashed border-line py-4">
               <span className="text-xs uppercase tracking-wider text-muted">Overall rating</span>
