@@ -64,7 +64,7 @@ function readTicket(body) {
   }
   if (body.coauthorId != null && !isUuid(body.coauthorId)) throw new ValidationError('Choose a friend to invite.')
   ticket.coauthorId = body.coauthorId ?? null
-  if (body.boxId != null && !isUuid(body.boxId)) throw new ValidationError('Choose a box from your tray.')
+  if (body.boxId != null && !isUuid(body.boxId)) throw new ValidationError('Choose a box from your collection.')
   ticket.boxId = body.boxId ?? null
 
   // Either an existing restaurant (restaurantId) or a place to file (from search or added by hand)
@@ -121,7 +121,7 @@ async function findOrFileRestaurant(client, userId, ticket) {
   return rows[0]
 }
 
-// POST /api/visits: save one ticket and its optional tray membership, photos, stickers
+// POST /api/visits: save one ticket and its optional box, photos, stickers
 // and co-author invite in a single transaction. Any problem saves nothing.
 router.post('/', async (req, res) => {
   const ticket = readTicket(req.body)
@@ -139,7 +139,7 @@ router.post('/', async (req, res) => {
         ticket.boxId,
         req.userId,
       ])
-      if (!box.rowCount) throw new ValidationError('This box is unavailable. Choose another box from your tray.')
+      if (!box.rowCount) throw new ValidationError('This box is unavailable. Choose another box from your collection.')
     }
 
     let restaurant = await findOrFileRestaurant(client, req.userId, ticket)

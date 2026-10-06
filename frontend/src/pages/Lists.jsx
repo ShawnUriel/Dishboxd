@@ -54,7 +54,7 @@ export default function Lists() {
     <div className="page-enter mx-auto max-w-6xl">
       <header className="flex flex-wrap items-end justify-between gap-6 border-b border-dashed border-line pb-7">
         <div>
-          <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-brand">Your tray / Personal collections</p>
+          <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-brand">Your collection / Personal boxes</p>
           <h1 className="font-serif text-4xl font-semibold tracking-tight sm:text-5xl">
             The Card Catalog<span className="text-brand">.</span>
           </h1>

@@ -75,7 +75,7 @@ export default function RestaurantProfile() {
                 <p className="mt-3 font-mono text-sm text-muted">
                   No boxes yet.{" "}
                   <Link to="/lists" className="text-accent underline hover:text-accent-dark">
-                    Make one in the Tray
+                    Make one in Collections
                   </Link>
                   .
                 </p>

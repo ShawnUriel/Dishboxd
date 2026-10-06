@@ -154,7 +154,7 @@ export default function Home() {
           </h2>
           <p className="mt-4 max-w-lg text-sm leading-7 text-muted">
             Welcome back, {name.split(' ')[0]}. A favourite dish, a little discovery, a table worth returning
-            to. Give every review a home in your tray.
+            to. Give every review a home in your collection.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Link
@@ -187,7 +187,7 @@ export default function Home() {
       <section aria-labelledby="journal-title" className="mx-auto w-full min-w-0 max-w-[40rem]">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h2 id="journal-title" className="font-serif text-2xl font-semibold">
-              {tab === 'journal' ? 'Fresh from your tray' : tab === 'foryou' ? 'Around your table' : 'Fresh discoveries'}
+              {tab === 'journal' ? 'Fresh from your journal' : tab === 'foryou' ? 'Around your table' : 'Fresh discoveries'}
             </h2>
             <div
               className="flex gap-1 rounded-md border border-line bg-card p-1"
@@ -257,8 +257,8 @@ export default function Home() {
                   <br />A world of good food.
                 </h3>
                 <p className="mt-4 max-w-md text-sm leading-7 text-muted">
-                  Your tray starts with one good meal. Write a review, add a photo from the day, and
-                  choose a box to keep the details you want to remember.
+                  Your journal starts with one good meal. Write a review, add a photo from the day, and
+                  file it in a box if you like.
                 </p>
                 <Link
                   to="/log/new"
@@ -270,7 +270,7 @@ export default function Home() {
                   {[
                     ['01', 'Pick your place'],
                     ['02', 'Tell the food story'],
-                    ['03', 'Choose a box in your tray'],
+                    ['03', 'File it in your collection'],
                   ].map(([number, text]) => (
                     <div key={number}>
                       <p className="text-xs text-brand">{number}</p>
@@ -419,7 +419,7 @@ export default function Home() {
                 ? `${boxes.length} boxes for your favourites and someday visits.`
                 : 'Keep date-night spots and coffee corners in their own boxes.'}
             </p>
-            <span className="mt-3 block text-xs text-accent">Open your tray →</span>
+            <span className="mt-3 block text-xs text-accent">Open your collection →</span>
           </Link>
         </aside>
       </div>

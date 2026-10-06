@@ -63,7 +63,7 @@ function BoxContent({ box }) {
     <div className="page-enter mx-auto min-w-0 max-w-6xl">
       <nav aria-label="Breadcrumb" className="mb-7 flex flex-wrap items-center gap-3 text-xs">
         <Link to="/lists" className="text-accent underline decoration-accent/35 underline-offset-4 hover:text-brand">
-          <span aria-hidden="true">← </span>Back to your tray
+          <span aria-hidden="true">← </span>Back to your collection
         </Link>
         <span aria-hidden="true" className="text-line">/</span>
         <span className="text-muted">Open box</span>

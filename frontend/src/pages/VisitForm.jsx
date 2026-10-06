@@ -57,8 +57,8 @@ export default function VisitForm() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [photoError, setPhotoError] = useState('')
+  // Filing the review in a box is optional
   const selectedBox = boxes.find((box) => box.id === boxId)
-  const boxEditorOpen = addingBox || !boxes.length
   const existing = restaurants.find((r) => r.id === restaurantId)
   const place = existing
     ? { restaurantId: existing.id, name: existing.name, address: existing.address, placeId: existing.placeId }
@@ -87,8 +87,7 @@ export default function VisitForm() {
   const stickerIds = new Set(stickerBook.map((sticker) => sticker.id))
   const reviewStickers = stickerDraft.filter((placement) => stickerIds.has(placement.stickerId))
   let problem = ''
-  if (boxEditorOpen) problem = 'Create a box in your tray to keep this review.'
-  else if (!selectedBox) problem = 'Choose a box from your tray for this review.'
+  if (addingBox && boxTitle.trim()) problem = 'Create your new box first, or cancel it.'
   else if (!place.name) problem = 'Add a restaurant name.'
   else if (!rating) problem = 'Pick an overall rating (1 to 5 stars).'
   else if (!filledDishes.length) problem = 'Add at least one item.'
@@ -190,7 +189,7 @@ export default function VisitForm() {
         isPublic,
         category: category.trim(),
         coauthorId: coauthor?.id ?? null,
-        boxId: selectedBox.id,
+        boxId: selectedBox?.id ?? null,
         stickers: reviewStickers.map(({ stickerId, x, y, rotation, scale }) => ({ stickerId, x, y, rotation, scale })),
       })
       navigate(`/restaurant/${savedId}`)
@@ -221,33 +220,33 @@ export default function VisitForm() {
           </header>
           {place.placeId && <TicketPlacePhoto key={place.placeId} placeId={place.placeId} name={place.name} />}
           <div className="space-y-6 px-5 py-6 sm:px-8">
-            <section aria-labelledby="tray-label" className="rounded-lg border border-line bg-sidebar/30 p-4 sm:p-5">
+            <section aria-labelledby="box-label" className="rounded-lg border border-line bg-sidebar/30 p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <span aria-hidden="true" className="mt-0.5 text-accent"><FolderIcon /></span>
                 <div className="min-w-0 flex-1">
-                  <label id="tray-label" htmlFor="review-box" className="text-xs uppercase tracking-wider text-muted">
-                    From your tray
+                  <label id="box-label" htmlFor="review-box" className="text-xs uppercase tracking-wider text-muted">
+                    Choose a box from your collection <span className="normal-case tracking-normal">(optional)</span>
                   </label>
-                  <p id="tray-hint" className="mt-1 text-xs leading-6 text-muted">
-                    Pick a box for this restaurant and its reviews. Keep your good meals together.
+                  <p id="box-hint" className="mt-1 text-xs leading-6 text-muted">
+                    Keep your good meals together, or skip it: a review doesn’t need a box.
                   </p>
                 </div>
               </div>
-              <select
-                ref={boxChoice}
-                id="review-box"
-                value={boxId}
-                onChange={(event) => { setBoxId(event.target.value); setAddingBox(false); setBoxError('') }}
-                disabled={!boxes.length || creatingBox || saving}
-                required
-                aria-describedby="tray-hint"
-                aria-invalid={triedSubmit && !selectedBox}
-                className="mt-3 w-full rounded-md border border-line bg-paper p-3 text-sm disabled:opacity-60"
-              >
-                <option value="">{boxes.length ? 'Choose a box from your tray' : 'Your first box starts here'}</option>
-                {boxes.map((box) => <option key={box.id} value={box.id}>{box.title}</option>)}
-              </select>
-              {boxEditorOpen ? (
+              {!!boxes.length && (
+                <select
+                  ref={boxChoice}
+                  id="review-box"
+                  value={boxId}
+                  onChange={(event) => { setBoxId(event.target.value); setAddingBox(false); setBoxError('') }}
+                  disabled={creatingBox || saving}
+                  aria-describedby="box-hint"
+                  className="mt-3 w-full rounded-md border border-line bg-paper p-3 text-sm disabled:opacity-60"
+                >
+                  <option value="">No box</option>
+                  {boxes.map((box) => <option key={box.id} value={box.id}>{box.title}</option>)}
+                </select>
+              )}
+              {addingBox ? (
                 <div className="mt-4 space-y-3 border-t border-dashed border-line pt-4">
                   <TextField
                     id="review-box-title"
@@ -270,17 +269,19 @@ export default function VisitForm() {
                     <Button size="sm" onClick={createBox} disabled={creatingBox || saving}>
                       {creatingBox ? 'Creating…' : 'Create & choose box'}
                     </Button>
-                    {!!boxes.length && (
-                      <Button variant="secondary" size="sm" disabled={creatingBox || saving} onClick={() => { setAddingBox(false); setBoxError('') }}>
-                        Cancel
-                      </Button>
-                    )}
+                    <Button variant="secondary" size="sm" disabled={creatingBox || saving} onClick={() => { setAddingBox(false); setBoxTitle(''); setBoxError('') }}>
+                      Cancel
+                    </Button>
                   </div>
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <p role="status" className="text-xs leading-6 text-muted">
-                    {selectedBox ? `This ticket will be filed in “${selectedBox.title}”.` : 'A little home for this meal.'}
+                    {selectedBox
+                      ? `This ticket will be filed in “${selectedBox.title}”.`
+                      : boxes.length
+                        ? 'Not in a box. You can file it later from the restaurant’s page.'
+                        : 'No boxes yet. Make one here, or carry on without.'}
                   </p>
                   <button type="button" disabled={saving} onClick={() => setAddingBox(true)} className="text-xs text-accent underline underline-offset-4 disabled:opacity-50">
                     + Create a new box
@@ -471,7 +472,7 @@ export default function VisitForm() {
                 Share this review on my profile
                 <span className="mt-1 block text-xs leading-6 text-muted">
                   Other signed-in diners can see this review and its photos, like it and repost it. Leave unchecked
-                  to keep it private. Your tray stays personal either way.
+                  to keep it private. Your collection stays personal either way.
                 </span>
               </span>
             </label>

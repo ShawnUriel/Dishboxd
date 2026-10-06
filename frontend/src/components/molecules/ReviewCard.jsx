@@ -203,7 +203,7 @@ export default function ReviewCard({
             <CoauthorControls review={review} own={own} currentUserId={currentUserId} onChange={onChange} />
             {isAuthor && (
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                <span className="text-muted">{review.isPublic ? 'Shared on your profile' : 'Just for your tray'}</span>
+                <span className="text-muted">{review.isPublic ? 'Shared on your profile' : 'Just for you'}</span>
                 <div className="flex items-center gap-4">
                   {canDecorate && (
                     <button

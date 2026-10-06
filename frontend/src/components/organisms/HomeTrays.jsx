@@ -9,9 +9,9 @@ export default function HomeTrays({ boxes, visits, restaurantsById }) {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="mb-1 text-[9px] uppercase tracking-[0.18em] text-muted">A place for every craving</p>
-          <h2 id="home-tray-title" className="font-serif text-2xl font-semibold">From your tray</h2>
+          <h2 id="home-tray-title" className="font-serif text-2xl font-semibold">From your collection</h2>
         </div>
-        <Link to="/lists" className="text-xs text-accent underline underline-offset-4">Open your tray <span aria-hidden="true">↗</span></Link>
+        <Link to="/lists" className="text-xs text-accent underline underline-offset-4">Open your collection <span aria-hidden="true">↗</span></Link>
       </div>
       {recentBoxes.length ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -22,7 +22,7 @@ export default function HomeTrays({ boxes, visits, restaurantsById }) {
             return (
               <li key={box.id} className="home-tray-card" style={{ '--home-tray-color': boxHex(box.color) }}>
                 <div className="mb-3 flex items-center justify-between gap-3 text-[9px] uppercase tracking-wider text-muted">
-                  <span className="flex items-center gap-2"><FolderIcon /> In your tray</span>
+                  <span className="flex items-center gap-2"><FolderIcon /> In your collection</span>
                   <span>{places.length} {places.length === 1 ? 'place' : 'places'}</span>
                 </div>
                 <Link to={`/lists/${box.id}`} className="block rounded-sm hover:text-brand">
@@ -51,7 +51,7 @@ export default function HomeTrays({ boxes, visits, restaurantsById }) {
               <p className="mt-2 max-w-lg text-xs leading-6 text-muted">Coffee corners, comfort food, a special occasion. Create a box and choose it when you write your next review.</p>
             </div>
           </div>
-          <Link to="/lists" className="shrink-0 text-xs font-medium text-accent underline underline-offset-4">Start your tray <span aria-hidden="true">↗</span></Link>
+          <Link to="/lists" className="shrink-0 text-xs font-medium text-accent underline underline-offset-4">Start your collection <span aria-hidden="true">↗</span></Link>
         </div>
       )}
     </section>
