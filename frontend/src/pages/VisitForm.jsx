@@ -13,7 +13,7 @@ import DishEntryList from '../components/organisms/DishEntryList.jsx'
 import { api } from '../lib/api.js'
 import { preparePhoto } from '../lib/photos.js'
 import { newDish } from '../lib/dishes.js'
-import { todayIso } from '../lib/format.js'
+import { restaurantCode, todayIso } from '../lib/format.js'
 import { reviewOnFire } from '../lib/scores.js'
 import { dishSuggestions } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
@@ -53,9 +53,11 @@ export default function VisitForm() {
   const [photoError, setPhotoError] = useState('')
   const selectedBox = boxes.find((box) => box.id === boxId)
   const boxEditorOpen = addingBox || !boxes.length
-  const inBox = restaurants.filter((restaurant) => selectedBox?.restaurantIds.includes(restaurant.id))
-  const otherRestaurants = restaurants.filter((restaurant) => !selectedBox?.restaurantIds.includes(restaurant.id))
   const existing = restaurants.find((r) => r.id === restaurantId)
+  // Typing the name of a place already in the journal offers to log this visit under it
+  const savedMatch = existing
+    ? null
+    : restaurants.find((r) => name.trim() && r.name.toLowerCase() === name.trim().toLowerCase())
   const place = existing
     ? { restaurantId: existing.id, name: existing.name, address: existing.address, placeId: existing.placeId }
     : {
@@ -81,15 +83,19 @@ export default function VisitForm() {
   let problem = ''
   if (boxEditorOpen) problem = 'Create a box in your tray to keep this review.'
   else if (!selectedBox) problem = 'Choose a box from your tray for this review.'
-  else if (!place.name) problem = 'Add a restaurant name or choose a saved place.'
+  else if (!place.name) problem = 'Add a restaurant name.'
   else if (!rating) problem = 'Pick an overall rating (1 to 5 stars).'
   else if (!filledDishes.length) problem = 'Add at least one item.'
   else if (!date || date > todayIso()) problem = 'Choose the day of your visit, up to today.'
 
-  function chooseRestaurant(id) {
-    setRestaurantId(id)
-    const chosen = restaurants.find((r) => r.id === id)
-    if (chosen) setCategory(chosen.category ?? '')
+  // Log this visit under a place already in the journal (or, with null, a new one)
+  function chooseSavedPlace(saved) {
+    setRestaurantId(saved?.id ?? '')
+    if (saved) {
+      setName(saved.name)
+      setAddress(saved.address ?? '')
+      setCategory(saved.category ?? '')
+    }
   }
 
   async function createBox() {
@@ -262,40 +268,45 @@ export default function VisitForm() {
               )}
             </section>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label htmlFor="restaurant-choice" className="text-xs uppercase tracking-wider text-muted">
-                  Restaurant
-                </label>
-                <select
-                  id="restaurant-choice"
-                  value={restaurantId}
-                  onChange={(e) => chooseRestaurant(e.target.value)}
-                  className="mt-2 w-full rounded-md border border-line bg-paper p-3 text-sm"
-                >
-                  <option value="">A new restaurant</option>
-                  {inBox.length > 0 && (
-                    <optgroup label={`In ${selectedBox.title}`}>
-                      {inBox.map((r) => <option key={r.id} value={r.id}>{r.name}{r.category ? ` · ${r.category}` : ''}</option>)}
-                    </optgroup>
-                  )}
-                  {otherRestaurants.length > 0 && (
-                    <optgroup label={selectedBox ? 'Other saved places' : 'Your saved places'}>
-                      {otherRestaurants.map((r) => <option key={r.id} value={r.id}>{r.name}{r.category ? ` · ${r.category}` : ''}</option>)}
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-              {!existing && (
+              {existing ? (
+                <p className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-md border border-line bg-paper px-4 py-3 text-sm sm:col-span-2">
+                  <span>
+                    Another visit to <strong className="font-serif text-base">{existing.name}</strong>
+                    <span className="ml-2 font-mono text-xs text-muted">{restaurantCode(existing.number)}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => chooseSavedPlace(null)}
+                    className="text-xs text-accent underline underline-offset-4"
+                  >
+                    A different restaurant
+                  </button>
+                </p>
+              ) : (
                 <>
-                  <TextField
-                    id="restaurant-name"
-                    label="Restaurant name"
-                    value={name}
-                    maxLength={100}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Where did you eat?"
-                    required
-                  />
+                  <div>
+                    <TextField
+                      id="restaurant-name"
+                      label="Restaurant name"
+                      value={name}
+                      maxLength={100}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Where did you eat?"
+                      required
+                    />
+                    {savedMatch && (
+                      <p className="mt-1 font-mono text-xs text-muted">
+                        Already in your journal.{' '}
+                        <button
+                          type="button"
+                          onClick={() => chooseSavedPlace(savedMatch)}
+                          className="text-accent underline underline-offset-4"
+                        >
+                          Use it
+                        </button>
+                      </p>
+                    )}
+                  </div>
                   <TextField
                     id="restaurant-address"
                     label="Address (optional)"
