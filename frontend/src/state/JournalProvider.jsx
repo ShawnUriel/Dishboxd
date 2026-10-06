@@ -50,13 +50,13 @@ export function JournalProvider({ children }) {
   // Saves one ticket. A known restaurant is sent by id; a NEW one (from search,
   // or added by hand) is sent as a place for the server to file.
   // Returns the restaurant id so the caller can open its profile.
-  async function addVisit(place, { date, rating, notes, dishes, photoIds = [], isPublic = false, category = '', coauthorId = null }) {
+  async function addVisit(place, { date, rating, notes, dishes, photoIds = [], isPublic = false, category = '', coauthorId = null, boxId = null }) {
     const where = place.restaurantId
       ? { restaurantId: place.restaurantId }
       : { place: { placeId: place.placeId ?? null, name: place.name, address: place.address ?? '' } }
     const saved = await api('/api/visits', {
       method: 'POST',
-      body: { ...where, date, rating, notes, dishes, photoIds, isPublic, category, coauthorId },
+      body: { ...where, date, rating, notes, dishes, photoIds, isPublic, category, coauthorId, boxId },
     })
 
     setJournal((current) => ({
@@ -65,6 +65,11 @@ export function JournalProvider({ children }) {
         ? current.restaurants.map((r) => (r.id === saved.restaurant.id ? saved.restaurant : r))
         : [...current.restaurants, saved.restaurant],
       visits: [saved.visit, ...current.visits],
+      boxes: current.boxes.map((box) =>
+        box.id === saved.boxMembership?.boxId && !box.restaurantIds.includes(saved.boxMembership.restaurantId)
+          ? { ...box, restaurantIds: [...box.restaurantIds, saved.boxMembership.restaurantId] }
+          : box,
+      ),
     }))
     return saved.restaurant.id
   }

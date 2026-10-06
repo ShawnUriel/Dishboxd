@@ -341,4 +341,90 @@ test('item reviews, categories, boxes, stickers, likes, reposts and co-reviews a
     assert.equal(together.status, 201)
     assert.deepEqual([together.data.visit.coauthor.id, together.data.visit.coauthor.status], [bea, 'pending'])
   })
+
+  await t.test('review creation files new and existing restaurants in the selected tray box', async () => {
+    const created = await request(casey, '/api/boxes', { method: 'POST', body: { title: 'Sunday coffee' } })
+    assert.equal(created.status, 201)
+    const destination = created.data.box
+    const first = await request(casey, '/api/visits', {
+      method: 'POST',
+      body: { ...ticket, place: { name: 'Sunday Morning Cafe' }, boxId: destination.id },
+    })
+    assert.equal(first.status, 201)
+    assert.deepEqual(first.data.boxMembership, { boxId: destination.id, restaurantId: first.data.restaurant.id })
+    assert.deepEqual(
+      (await request(casey, '/api/boxes')).data.boxes.find((item) => item.id === destination.id).restaurantIds,
+      [first.data.restaurant.id],
+    )
+    assert.ok((await request(casey, '/api/visits')).data.visits.some((item) => item.id === first.data.visit.id))
+
+    // Older API clients may still save a review before deciding on a box.
+    const unfiled = await request(casey, '/api/visits', {
+      method: 'POST', body: { ...ticket, place: { name: 'Afternoon Bakery' } },
+    })
+    assert.equal(unfiled.status, 201)
+    assert.equal(unfiled.data.boxMembership, null)
+    const existing = await request(casey, '/api/visits', {
+      method: 'POST', body: { ...ticket, restaurantId: unfiled.data.restaurant.id, boxId: destination.id },
+    })
+    assert.equal(existing.status, 201)
+    assert.equal(existing.data.restaurant.id, unfiled.data.restaurant.id)
+    assert.deepEqual(existing.data.boxMembership, { boxId: destination.id, restaurantId: unfiled.data.restaurant.id })
+
+    // Revisiting a place keeps both tickets and a single restaurant in the box.
+    const repeat = await request(casey, '/api/visits', {
+      method: 'POST', body: { ...ticket, restaurantId: first.data.restaurant.id, boxId: destination.id },
+    })
+    assert.equal(repeat.status, 201)
+    const filed = (await request(casey, '/api/boxes')).data.boxes.find((item) => item.id === destination.id)
+    assert.deepEqual(filed.restaurantIds, [first.data.restaurant.id, unfiled.data.restaurant.id])
+    const savedVisits = (await request(casey, '/api/visits')).data.visits
+    assert.equal(savedVisits.filter((item) => item.restaurantId === first.data.restaurant.id).length, 2)
+  })
+
+  await t.test('invalid and foreign tray destinations save no ticket, place or category change', async () => {
+    const beforePlaces = (await request(casey, '/api/restaurants')).data.restaurants
+    const beforeVisits = (await request(casey, '/api/visits')).data.visits
+    const beforeBoxes = (await request(casey, '/api/boxes')).data.boxes
+    const foreignBox = box.id
+    for (const boxId of ['invalid', foreignBox, '00000000-0000-0000-0000-000000000000']) {
+      const refused = await request(casey, '/api/visits', {
+        method: 'POST', body: { ...ticket, place: { name: 'Must not be filed' }, boxId },
+      })
+      assert.equal(refused.status, 400)
+      assert.match(refused.data.error, /box|tray/i)
+    }
+    const existing = await request(casey, '/api/visits', {
+      method: 'POST',
+      body: { ...ticket, restaurantId: beforePlaces[0].id, category: 'Must not change', boxId: foreignBox },
+    })
+    assert.equal(existing.status, 400)
+    const foreignRestaurant = await request(casey, '/api/visits', {
+      method: 'POST', body: { ...ticket, restaurantId: restaurant.id, boxId: beforeBoxes[0].id },
+    })
+    assert.equal(foreignRestaurant.status, 404)
+    assert.deepEqual((await request(casey, '/api/restaurants')).data.restaurants, beforePlaces)
+    assert.deepEqual((await request(casey, '/api/visits')).data.visits, beforeVisits)
+    assert.deepEqual((await request(casey, '/api/boxes')).data.boxes, beforeBoxes)
+  })
+
+  await t.test('a late ticket failure rolls back tray membership, the new place and its dishes', async () => {
+    const destination = (await request(casey, '/api/boxes')).data.boxes[0]
+    const beforePlaces = (await request(casey, '/api/restaurants')).data.restaurants
+    const beforeVisits = (await request(casey, '/api/visits')).data.visits
+    const refused = await request(casey, '/api/visits', {
+      method: 'POST',
+      body: {
+        ...ticket,
+        place: { name: 'Rolled back cafe' },
+        boxId: destination.id,
+        photoIds: ['00000000-0000-0000-0000-000000000000'],
+      },
+    })
+    assert.equal(refused.status, 400)
+    assert.match(refused.data.error, /photos/)
+    assert.deepEqual((await request(casey, '/api/restaurants')).data.restaurants, beforePlaces)
+    assert.deepEqual((await request(casey, '/api/visits')).data.visits, beforeVisits)
+    assert.deepEqual((await request(casey, '/api/boxes')).data.boxes.find((item) => item.id === destination.id), destination)
+  })
 })

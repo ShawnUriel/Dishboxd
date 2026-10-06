@@ -59,6 +59,8 @@ function readTicket(body) {
   }
   if (body.coauthorId != null && !isUuid(body.coauthorId)) throw new ValidationError('Choose a friend to invite.')
   ticket.coauthorId = body.coauthorId ?? null
+  if (body.boxId != null && !isUuid(body.boxId)) throw new ValidationError('Choose a box from your tray.')
+  ticket.boxId = body.boxId ?? null
 
   // Either an existing restaurant (restaurantId) or a place to file (from search or added by hand)
   if (body.restaurantId !== undefined) {
@@ -114,8 +116,8 @@ async function findOrFileRestaurant(client, userId, ticket) {
   return rows[0]
 }
 
-// POST /api/visits: save one ticket (the visit, its dishes, photos, stickers and an optional
-// co-author invite) in a single transaction. Any problem saves nothing.
+// POST /api/visits: save one ticket and its optional tray membership, photos, stickers
+// and co-author invite in a single transaction. Any problem saves nothing.
 router.post('/', async (req, res) => {
   const ticket = readTicket(req.body)
   if (ticket.coauthorId) {
@@ -127,6 +129,14 @@ router.post('/', async (req, res) => {
     // One ticket at a time per user, so two tabs cannot hand out the same catalog number
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [req.userId])
 
+    if (ticket.boxId) {
+      const box = await client.query('SELECT id FROM boxes WHERE id = $1 AND user_id = $2 FOR KEY SHARE', [
+        ticket.boxId,
+        req.userId,
+      ])
+      if (!box.rowCount) throw new ValidationError('This box is unavailable. Choose another box from your tray.')
+    }
+
     let restaurant = await findOrFileRestaurant(client, req.userId, ticket)
     if (!restaurant) return null
     // A category chosen on the ticket also sorts a place already on file
@@ -136,6 +146,16 @@ router.post('/', async (req, res) => {
         [restaurant.id, req.userId, ticket.category],
       )
       restaurant = updated.rows[0]
+    }
+
+    // Boxes collect restaurants with all their reviews. A repeat visit must not file
+    // the same restaurant twice, and failures later in the ticket undo this too.
+    if (ticket.boxId) {
+      await client.query(
+        `INSERT INTO box_restaurants (box_id, restaurant_id, user_id) VALUES ($1, $2, $3)
+         ON CONFLICT (box_id, restaurant_id) DO NOTHING`,
+        [ticket.boxId, restaurant.id, req.userId],
+      )
     }
 
     const { rows } = await client.query(
@@ -187,11 +207,19 @@ router.post('/', async (req, res) => {
         ticket.coauthorId,
       ])
     }
-    return { restaurant, visit: await loadReview(req.userId, visitId, client) }
+    return {
+      restaurant,
+      visit: await loadReview(req.userId, visitId, client),
+      boxMembership: ticket.boxId ? { boxId: ticket.boxId, restaurantId: restaurant.id } : null,
+    }
   })
 
   if (!saved) return res.status(404).json({ error: 'Restaurant not found.' })
-  res.status(201).json({ restaurant: toRestaurant(saved.restaurant), visit: saved.visit })
+  res.status(201).json({
+    restaurant: toRestaurant(saved.restaurant),
+    visit: saved.visit,
+    boxMembership: saved.boxMembership,
+  })
 })
 
 router.patch('/:id', async (req, res) => {

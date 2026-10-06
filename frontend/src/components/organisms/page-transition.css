@@ -1,0 +1,63 @@
+.paper-page-frame {
+  min-width: 0;
+  overflow-x: clip;
+  overflow-clip-margin: 24px;
+}
+
+.paper-page {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  transform-origin: 0 12%;
+  animation: paper-arrive 520ms cubic-bezier(.22, .72, .22, 1) both;
+}
+
+/* Light travels across the sheet as its lifted edge settles onto the desk. */
+.paper-page::before {
+  content: '';
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, #e6d8bd30 54%, #fffef88c 68%, transparent 90%);
+  opacity: 0;
+  animation: paper-light 520ms ease-out both;
+}
+
+.paper-page::after {
+  content: '';
+  position: absolute;
+  z-index: 10;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+  background: linear-gradient(225deg, var(--color-paper) 46%, var(--color-card-edge) 49%, #d9cbb04d 52%, transparent 65%);
+  transform-origin: 100% 0;
+  opacity: 0;
+  animation: paper-corner 520ms ease-out both;
+}
+
+/* Route content already has a sheet transition; avoid a second full-page slide. */
+.paper-page > .page-enter { animation: none; }
+
+@keyframes paper-arrive {
+  from { opacity: .35; transform: perspective(1600px) translate3d(14px, 7px, 0) rotateY(-2deg); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes paper-light {
+  from { opacity: .8; transform: translateX(-16%); }
+  to { opacity: 0; transform: translateX(16%); }
+}
+
+@keyframes paper-corner {
+  from { opacity: .85; transform: scale(1); }
+  to { opacity: 0; transform: scale(.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-page { animation: none; }
+  .paper-page::before, .paper-page::after { display: none; animation: none; }
+}

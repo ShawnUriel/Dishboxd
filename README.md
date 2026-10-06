@@ -195,7 +195,7 @@ Every journal page needs you to be logged in. The journal starts empty, and ever
 
 ### Item scores, and going past 10
 
-Use **−** / **+** or the slider to score an item from 0 to 10; a word appears with it ("Pretty good", "Perfect"). Something unforgettable can go past 10: **11/10** ("Off the charts") and **12/10** ("Legendary") are the top. Any item past 10 sets the whole review on fire: the card glows like embers, the score badge burns, and flames rise along the bottom of the card (taller ones for 12/10). The item's container on the ticket catches fire as you score it. Flames respect reduced-motion preferences. Scores are optional; the 1–5 star overall rating stays.
+Use **−** / **+** or the slider to score an item from 0 to 10; a word appears with it ("Pretty good", "Perfect"). Something unforgettable can go past 10: **11/10** ("Off the charts") and **12/10** ("Legendary") are the top. Any item past 10 sets the whole review on fire: flat, illustrated flames in red, orange, yellow and salmon burn along the bottom of the card with sparks rising, the card casts a flickering red fire shadow underneath, and the score badge burns (a taller fire for 12/10). The item's container on the ticket catches fire as you score it. Flames respect reduced-motion preferences. Scores are optional; the 1–5 star overall rating stays.
 
 ### Categories
 
@@ -261,7 +261,7 @@ The uploader accepts JPEG, PNG and WebP files up to 12 MB, resizes them and conv
 - **Components:** built in atomic layers in `frontend/src/components/` (`atoms/`, `molecules/`, `organisms/`), following my wireframe component tree.
 - **Responsive:** below 768px the side tabs become a bottom tab bar, and the restaurant profile's two columns stack into one.
 - **Motion:** subtle card entrances and hover movement; disabled when the viewer prefers reduced motion. Keyboard focus remains visible.
-- **Fire:** reviews with an item past 10 get an ember glow, flame-coloured score badges and CSS flames (`.on-fire`, `.flames` and `.score-fire` in `index.css`), static when motion is reduced.
+- **Fire:** reviews and ticket items past 10 get layered SVG flames (`Flames.jsx`), drawn behind the card's text, a flickering red fire shadow underneath (`.on-fire` and its `::after` in `index.css`) and burning score badges (`.score-fire`); everything holds still when motion is reduced.
 - **Table setting:** the ticket's gingham tablecloth, plate, napkin and cutlery are drawn with CSS and inline SVG (`TableSetting.jsx`, `.dining-table`/`.plate` in `index.css`); the napkin and cutlery appear only when the screen is wide enough to show them beside the plate.
 - **Friends tab:** lavender with dark text, like the other light tabs.
 

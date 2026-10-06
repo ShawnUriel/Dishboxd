@@ -49,7 +49,7 @@ export default function ReviewActions({ review, canRepost, onChange }) {
         disabled={busy.like}
         aria-pressed={review.liked}
         aria-label={`${review.liked ? 'Unlike' : 'Like'} this review, ${review.likeCount} ${review.likeCount === 1 ? 'like' : 'likes'}`}
-        className={`${base} ${review.liked ? 'border-brand/40 bg-brand/10 text-brand' : 'border-line text-muted hover:border-brand hover:text-brand'}`}
+        className={`${base} ${review.liked ? 'border-brand/40 bg-[#f3e5e2] text-brand' : 'border-line bg-card text-muted hover:border-brand hover:text-brand'}`}
       >
         <HeartIcon filled={review.liked} />
         <span className="tabular-nums">{review.likeCount}</span>
@@ -61,18 +61,18 @@ export default function ReviewActions({ review, canRepost, onChange }) {
           disabled={busy.repost}
           aria-pressed={review.reposted}
           aria-label={`${review.reposted ? 'Undo repost' : 'Repost to your followers'}, ${review.repostCount} ${review.repostCount === 1 ? 'repost' : 'reposts'}`}
-          className={`${base} ${review.reposted ? 'border-accent/50 bg-accent/10 text-accent' : 'border-line text-muted hover:border-accent hover:text-accent'}`}
+          className={`${base} ${review.reposted ? 'border-accent/50 bg-[#e9edf1] text-accent' : 'border-line bg-card text-muted hover:border-accent hover:text-accent'}`}
         >
           <RepostIcon />
           <span className="tabular-nums">{review.repostCount}</span>
         </button>
       )}
-      <button type="button" onClick={share} className={`${base} border-line text-muted hover:border-ink hover:text-ink`}>
+      <button type="button" onClick={share} className={`${base} border-line bg-card text-muted hover:border-ink hover:text-ink`}>
         <ShareIcon />
         Share
       </button>
       {note && (
-        <span role="status" className="text-[11px] text-muted">
+        <span role="status" className="rounded bg-card px-1.5 py-0.5 text-[11px] text-muted">
           {note}
         </span>
       )}

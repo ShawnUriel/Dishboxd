@@ -52,7 +52,7 @@ export default function ReviewCard({
   }
 
   return (
-    <article className={`paper-card relative p-5 sm:p-6 ${level ? 'on-fire pb-16 sm:pb-16' : ''}`}>
+    <article className={`paper-card relative p-5 sm:p-6 ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
       {review.repostedBy && (
         <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
           ↻ Reposted by{' '}

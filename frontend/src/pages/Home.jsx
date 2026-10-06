@@ -4,6 +4,8 @@ import Button from '../components/atoms/Button.jsx'
 import Photo from '../components/atoms/Photo.jsx'
 import PersonCard from '../components/molecules/PersonCard.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
+import HomePaperNote from '../components/molecules/HomePaperNote.jsx'
+import HomeTrays from '../components/organisms/HomeTrays.jsx'
 import { api } from '../lib/api.js'
 import { authCall, authClient } from '../lib/auth.js'
 import { categoryCounts } from '../lib/categories.js'
@@ -11,6 +13,7 @@ import { formatMonth } from '../lib/format.js'
 import { mergeReview } from '../lib/reviews.js'
 import { averageRating, newestFirst } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
+import './Home.css'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -59,6 +62,7 @@ export default function Home() {
   const recent = [...visits].sort(newestFirst).slice(0, 10)
   const favourite = restaurants
     .map((r) => ({ ...r, rating: averageRating(visits.filter((v) => v.restaurantId === r.id)) }))
+    .filter((r) => r.rating != null)
     .sort((a, b) => b.rating - a.rating)[0]
   const dishCount = visits.reduce((count, visit) => count + visit.dishes.length, 0)
   const categories = categoryCounts(restaurants)
@@ -109,7 +113,7 @@ export default function Home() {
         </div>
       </header>
       <section
-        className="paper-card relative grid overflow-hidden bg-sidebar/40 p-6 sm:p-8 lg:grid-cols-[1fr_16rem] lg:gap-8"
+        className="paper-card home-welcome relative grid gap-9 p-6 sm:p-8 lg:grid-cols-[1fr_16rem] lg:gap-8"
         aria-labelledby="welcome-title"
       >
         <div className="relative z-10">
@@ -126,34 +130,21 @@ export default function Home() {
           </h2>
           <p className="mt-4 max-w-lg text-sm leading-7 text-muted">
             Welcome back, {name.split(' ')[0]}. A favourite dish, a little discovery, a table worth returning
-            to. Keep it all here.
+            to. Give every review a home in your tray.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Link
               to="/log/new"
               className="paper-lift rounded-md bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-wider text-white"
             >
-              + New entry
+              + New review
             </Link>
             <Link to="/friends" className="text-xs text-accent underline underline-offset-4">
               Find your food people ↗
             </Link>
           </div>
         </div>
-        <div aria-hidden="true" className="relative hidden items-center justify-center lg:flex">
-          <div className="absolute size-48 rounded-full border border-dashed border-brand/20" />
-          <div className="rotate-6 border border-card-edge bg-card px-7 py-6 text-center shadow-md">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted">Filed under</p>
-            <p className="my-4 font-serif text-3xl italic text-brand">
-              Very good
-              <br />
-              taste.
-            </p>
-            <div className="border-t border-dashed border-line pt-3 text-[10px] uppercase tracking-widest text-muted">
-              ★ Keep the good ones ★
-            </div>
-          </div>
-        </div>
+        <HomePaperNote />
       </section>
       <div className="stagger my-6 grid grid-cols-3 gap-3 sm:gap-5">
         {[
@@ -167,11 +158,12 @@ export default function Home() {
           </div>
         ))}
       </div>
+      <HomeTrays boxes={boxes} visits={visits} restaurantsById={byId} />
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <section aria-labelledby="journal-title" className="min-w-0">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h2 id="journal-title" className="font-serif text-2xl font-semibold">
-              Fresh from the journal
+              {tab === 'journal' ? 'Fresh from your tray' : tab === 'following' ? 'Around your table' : 'Fresh discoveries'}
             </h2>
             <div
               className="flex gap-1 rounded-md border border-line bg-card p-1"
@@ -241,8 +233,8 @@ export default function Home() {
                   <br />A world of good food.
                 </h3>
                 <p className="mt-4 max-w-md text-sm leading-7 text-muted">
-                  Your journal starts with you. Write about a meal, add a photo from the day, and save the
-                  details you want to remember.
+                  Your tray starts with one good meal. Write a review, add a photo from the day, and
+                  choose a box to keep the details you want to remember.
                 </p>
                 <Link
                   to="/log/new"
@@ -254,7 +246,7 @@ export default function Home() {
                   {[
                     ['01', 'Pick your place'],
                     ['02', 'Tell the food story'],
-                    ['03', 'Keep a little snapshot'],
+                    ['03', 'Choose a box in your tray'],
                   ].map(([number, text]) => (
                     <div key={number}>
                       <p className="text-xs text-brand">{number}</p>
@@ -299,7 +291,7 @@ export default function Home() {
           )}
         </section>
       <aside className="min-w-0 space-y-5">
-          <section className="paper-card p-5">
+          <section className="paper-card home-margin-note p-5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-brand">A little nudge</p>
             <h2 className="mt-3 font-serif text-2xl font-semibold">Your next good bite</h2>
             {favourite ? (

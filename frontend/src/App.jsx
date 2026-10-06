@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { GuestOnly, RequireAuth } from './components/organisms/AuthGate.jsx'
 import Navbar from './components/organisms/Navbar.jsx'
+import PageTransition from './components/organisms/PageTransition.jsx'
 import Home from './pages/Home.jsx'
 import ListDetail from './pages/ListDetail.jsx'
 import Lists from './pages/Lists.jsx'
@@ -39,7 +40,9 @@ function JournalLayout() {
         <Navbar />
         <main id="main" className="bg-lined min-h-screen min-w-0 flex-1 pb-24 md:pb-0">
           <div className="mx-auto max-w-[82rem] px-4 pt-6 pb-12 sm:px-8 md:px-10 md:pt-9 lg:px-12">
-            <Outlet />
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </div>
         </main>
       </div>
@@ -52,11 +55,13 @@ function App() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
-        <Route element={<GuestOnly />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
+        <Route element={<PageTransition><Outlet /></PageTransition>}>
+          <Route element={<GuestOnly />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+          </Route>
+          <Route path="/verify-email" element={<VerifyEmail />} />
         </Route>
-        <Route path="/verify-email" element={<VerifyEmail />} />
 
         <Route element={<RequireAuth />}>
           <Route element={<JournalLayout />}>

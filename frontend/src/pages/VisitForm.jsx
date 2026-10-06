@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Button from '../components/atoms/Button.jsx'
 import TextField from '../components/atoms/TextField.jsx'
 import Photo from '../components/atoms/Photo.jsx'
 import StarRating from '../components/atoms/StarRating.jsx'
 import TableSetting from '../components/atoms/TableSetting.jsx'
+import { FolderIcon } from '../components/atoms/Icon.jsx'
 import CategoryField from '../components/molecules/CategoryField.jsx'
 import CoauthorPicker from '../components/molecules/CoauthorPicker.jsx'
 import TicketPlacePhoto from '../components/molecules/TicketPlacePhoto.jsx'
@@ -18,9 +19,19 @@ import { dishSuggestions } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
 
 export default function VisitForm() {
-  const initialPlace = useLocation().state?.place
+  const location = useLocation()
+  const initialPlace = location.state?.place
   const navigate = useNavigate()
-  const { addVisit, visits, restaurants } = useJournal()
+  const { addVisit, addBox, visits, restaurants, boxes } = useJournal()
+  const [boxId, setBoxId] = useState(() => {
+    const requested = location.state?.boxId || new URLSearchParams(location.search).get('boxId')
+    return boxes.some((box) => box.id === requested) ? requested : ''
+  })
+  const [addingBox, setAddingBox] = useState(false)
+  const [boxTitle, setBoxTitle] = useState('')
+  const [creatingBox, setCreatingBox] = useState(false)
+  const [boxError, setBoxError] = useState('')
+  const boxChoice = useRef(null)
   const [name, setName] = useState(initialPlace?.name ?? '')
   const [address, setAddress] = useState(initialPlace?.address ?? '')
   const [restaurantId, setRestaurantId] = useState(initialPlace?.restaurantId ?? '')
@@ -40,6 +51,10 @@ export default function VisitForm() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [photoError, setPhotoError] = useState('')
+  const selectedBox = boxes.find((box) => box.id === boxId)
+  const boxEditorOpen = addingBox || !boxes.length
+  const inBox = restaurants.filter((restaurant) => selectedBox?.restaurantIds.includes(restaurant.id))
+  const otherRestaurants = restaurants.filter((restaurant) => !selectedBox?.restaurantIds.includes(restaurant.id))
   const existing = restaurants.find((r) => r.id === restaurantId)
   const place = existing
     ? { restaurantId: existing.id, name: existing.name, address: existing.address, placeId: existing.placeId }
@@ -64,7 +79,9 @@ export default function VisitForm() {
     }))
   const onFire = reviewOnFire({ dishes: filledDishes })
   let problem = ''
-  if (!place.name) problem = 'Add a restaurant name or choose one from your journal.'
+  if (boxEditorOpen) problem = 'Create a box in your tray to keep this review.'
+  else if (!selectedBox) problem = 'Choose a box from your tray for this review.'
+  else if (!place.name) problem = 'Add a restaurant name or choose a saved place.'
   else if (!rating) problem = 'Pick an overall rating (1 to 5 stars).'
   else if (!filledDishes.length) problem = 'Add at least one item.'
   else if (!date || date > todayIso()) problem = 'Choose the day of your visit, up to today.'
@@ -73,6 +90,27 @@ export default function VisitForm() {
     setRestaurantId(id)
     const chosen = restaurants.find((r) => r.id === id)
     if (chosen) setCategory(chosen.category ?? '')
+  }
+
+  async function createBox() {
+    if (creatingBox || saving) return
+    if (!boxTitle.trim()) {
+      setBoxError('Give your box a name first.')
+      return
+    }
+    setCreatingBox(true)
+    setBoxError('')
+    try {
+      const id = await addBox(boxTitle.trim())
+      setBoxId(id)
+      setAddingBox(false)
+      setBoxTitle('')
+      requestAnimationFrame(() => boxChoice.current?.focus())
+    } catch (failure) {
+      setBoxError(failure.message)
+    } finally {
+      setCreatingBox(false)
+    }
   }
 
   async function uploadPhotos(event) {
@@ -114,7 +152,7 @@ export default function VisitForm() {
     event.preventDefault()
     setTriedSubmit(true)
     setSaveError('')
-    if (problem || saving || uploading) return
+    if (problem || saving || uploading || creatingBox) return
     setSaving(true)
     try {
       const savedId = await addVisit(place, {
@@ -126,6 +164,7 @@ export default function VisitForm() {
         isPublic,
         category: category.trim(),
         coauthorId: coauthor?.id ?? null,
+        boxId: selectedBox.id,
       })
       navigate(`/restaurant/${savedId}`)
     } catch (failure) {
@@ -155,10 +194,77 @@ export default function VisitForm() {
           </header>
           {place.placeId && <TicketPlacePhoto key={place.placeId} placeId={place.placeId} name={place.name} />}
           <div className="space-y-6 px-5 py-6 sm:px-8">
+            <section aria-labelledby="tray-label" className="rounded-lg border border-line bg-sidebar/30 p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <span aria-hidden="true" className="mt-0.5 text-accent"><FolderIcon /></span>
+                <div className="min-w-0 flex-1">
+                  <label id="tray-label" htmlFor="review-box" className="text-xs uppercase tracking-wider text-muted">
+                    From your tray
+                  </label>
+                  <p id="tray-hint" className="mt-1 text-xs leading-6 text-muted">
+                    Pick a box for this restaurant and its reviews. Keep your good meals together.
+                  </p>
+                </div>
+              </div>
+              <select
+                ref={boxChoice}
+                id="review-box"
+                value={boxId}
+                onChange={(event) => { setBoxId(event.target.value); setAddingBox(false); setBoxError('') }}
+                disabled={!boxes.length || creatingBox || saving}
+                required
+                aria-describedby="tray-hint"
+                aria-invalid={triedSubmit && !selectedBox}
+                className="mt-3 w-full rounded-md border border-line bg-paper p-3 text-sm disabled:opacity-60"
+              >
+                <option value="">{boxes.length ? 'Choose a box from your tray' : 'Your first box starts here'}</option>
+                {boxes.map((box) => <option key={box.id} value={box.id}>{box.title}</option>)}
+              </select>
+              {boxEditorOpen ? (
+                <div className="mt-4 space-y-3 border-t border-dashed border-line pt-4">
+                  <TextField
+                    id="review-box-title"
+                    label={boxes.length ? 'New box name' : 'Name your first box'}
+                    value={boxTitle}
+                    onChange={(event) => { setBoxTitle(event.target.value); setBoxError('') }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        createBox()
+                      }
+                    }}
+                    maxLength={60}
+                    disabled={creatingBox || saving}
+                    placeholder="Sunday coffee, comfort food…"
+                    hint="Create it here and carry on with your review."
+                  />
+                  {boxError && <p role="alert" className="text-xs text-brand">{boxError}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={createBox} disabled={creatingBox || saving}>
+                      {creatingBox ? 'Creating…' : 'Create & choose box'}
+                    </Button>
+                    {!!boxes.length && (
+                      <Button variant="secondary" size="sm" disabled={creatingBox || saving} onClick={() => { setAddingBox(false); setBoxError('') }}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <p role="status" className="text-xs leading-6 text-muted">
+                    {selectedBox ? `This ticket will be filed in “${selectedBox.title}”.` : 'A little home for this meal.'}
+                  </p>
+                  <button type="button" disabled={saving} onClick={() => setAddingBox(true)} className="text-xs text-accent underline underline-offset-4 disabled:opacity-50">
+                    + Create a new box
+                  </button>
+                </div>
+              )}
+            </section>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label htmlFor="restaurant-choice" className="text-xs uppercase tracking-wider text-muted">
-                  From your journal
+                  Restaurant
                 </label>
                 <select
                   id="restaurant-choice"
@@ -167,12 +273,16 @@ export default function VisitForm() {
                   className="mt-2 w-full rounded-md border border-line bg-paper p-3 text-sm"
                 >
                   <option value="">A new restaurant</option>
-                  {restaurants.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                      {r.category ? ` · ${r.category}` : ''}
-                    </option>
-                  ))}
+                  {inBox.length > 0 && (
+                    <optgroup label={`In ${selectedBox.title}`}>
+                      {inBox.map((r) => <option key={r.id} value={r.id}>{r.name}{r.category ? ` · ${r.category}` : ''}</option>)}
+                    </optgroup>
+                  )}
+                  {otherRestaurants.length > 0 && (
+                    <optgroup label={selectedBox ? 'Other saved places' : 'Your saved places'}>
+                      {otherRestaurants.map((r) => <option key={r.id} value={r.id}>{r.name}{r.category ? ` · ${r.category}` : ''}</option>)}
+                    </optgroup>
+                  )}
                 </select>
               </div>
               {!existing && (
@@ -200,7 +310,7 @@ export default function VisitForm() {
                 <CategoryField
                   value={category}
                   onChange={setCategory}
-                  hint={existing ? 'Changing it here also re-sorts this place in your journal.' : undefined}
+                  hint={existing ? 'Changing it here also updates this saved place.' : undefined}
                 />
               </div>
               <TextField
@@ -333,7 +443,7 @@ export default function VisitForm() {
                 Share this review on my profile
                 <span className="mt-1 block text-xs leading-6 text-muted">
                   Other signed-in diners can see this review and its photos, like it and repost it. Leave unchecked
-                  to keep it in your private journal.
+                  to keep it private. Your tray stays personal either way.
                 </span>
               </span>
             </label>
@@ -344,10 +454,10 @@ export default function VisitForm() {
             </p>
           )}
           <footer className="flex gap-3 border-t border-dashed border-line px-6 py-6 sm:px-8">
-            <Button variant="secondary" onClick={() => navigate('/')} disabled={saving}>
+            <Button variant="secondary" onClick={() => navigate('/')} disabled={saving || creatingBox}>
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={saving || uploading}>
+            <Button type="submit" className="flex-1" disabled={saving || uploading || creatingBox}>
               {saving ? 'Stamping…' : 'Stamp & submit'}
             </Button>
           </footer>
