@@ -25,7 +25,7 @@ export default function ListCard({ box, restaurantsById }) {
             <span className="shrink-0 text-brand">{count ? 'ON FILE' : 'TO BE FILLED'}</span>
           </span>
         </div>
-        <div className={`catalog-box-front ${dark ? 'text-white' : 'text-ink'}`}>
+        <div className={`catalog-box-front isolate ${dark ? 'text-white' : 'text-ink'}`}>
           <div className="catalog-box-label">
             <div className="mb-3 flex items-center justify-between gap-3 text-[9px] uppercase tracking-[0.15em] text-muted">
               <span>Personal collection</span>

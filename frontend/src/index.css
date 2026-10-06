@@ -125,14 +125,14 @@
   animation: fire-shadow 1.7s ease-in-out infinite;
 }
 .on-fire::after {
-  content: ''; position: absolute; z-index: -2; left: 6%; right: 6%; bottom: -38px; height: 84px;
+  content: ''; position: absolute; z-index: -3; left: 6%; right: 6%; bottom: -38px; height: 84px;
   border-radius: 50%; pointer-events: none;
   background: radial-gradient(ellipse at 50% 40%, rgb(255 58 40 / .6), rgb(255 116 40 / .32) 42%, transparent 70%);
   filter: blur(14px);
   animation: fire-floor 1.3s ease-in-out infinite alternate;
 }
 .flames {
-  position: absolute; inset: auto 0 0; z-index: -1; height: 110px;
+  position: absolute; inset: auto 0 0; z-index: -2; height: 110px;
   pointer-events: none; user-select: none; overflow: hidden; border-radius: 0 0 11px 11px;
 }
 .flames-high { height: 136px; }

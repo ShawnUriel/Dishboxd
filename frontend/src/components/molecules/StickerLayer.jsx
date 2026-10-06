@@ -5,8 +5,10 @@ const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, value))
 const tidy = (value) => Math.round(value * 10) / 10
 const keyOf = (placement) => placement.id ?? placement.key ?? placement.stickerId
 
-// The stickers stuck on one card (the card itself needs `relative`).
-// While `editing`: drag a sticker to move it, tap it for tilt / size / peel-off buttons.
+// The stickers stuck on one card. The card needs `relative isolate`: the pictures are drawn between
+// the card's paper and its content, so they never cover any text, wherever they are placed.
+// While `editing`, an invisible handle sits over each sticker: drag it to move the sticker, tap it for
+// tilt / size / peel-off buttons. The picture itself stays behind the text even then.
 // Keyboard: arrows move (Shift for bigger steps), [ and ] tilt, - and + resize, Delete peels it off.
 export default function StickerLayer({ placements, size = 64, editing = false, onUpdate, onRemove, label = 'Stickers' }) {
   const layer = useRef(null)
@@ -77,89 +79,105 @@ export default function StickerLayer({ placements, size = 64, editing = false, o
     }
   }
 
+  function place(placement, index) {
+    const key = keyOf(placement)
+    const dragging = drag?.key === key
+    return {
+      key,
+      dragging,
+      x: dragging ? drag.x : placement.x,
+      y: dragging ? drag.y : placement.y,
+      isSelected: editing && selected === key,
+      index,
+    }
+  }
+
+  const styleOf = ({ x, y, index }, placement) => ({
+    left: `${x}%`,
+    top: `${y}%`,
+    width: `${size * placement.scale}px`,
+    transform: `translate(-50%, -50%) rotate(${placement.rotation}deg)`,
+    zIndex: index + 1,
+  })
+
   return (
-    <div
-      ref={layer}
-      className="pointer-events-none absolute inset-0 z-20"
-      role={editing ? 'group' : undefined}
-      aria-label={editing ? label : undefined}
-      aria-hidden={editing ? undefined : 'true'}
-    >
-      {placements.map((placement, index) => {
-        const key = keyOf(placement)
-        const dragging = drag?.key === key
-        const x = dragging ? drag.x : placement.x
-        const y = dragging ? drag.y : placement.y
-        const isSelected = editing && selected === key
-        const style = {
-          left: `${x}%`,
-          top: `${y}%`,
-          width: `${size * placement.scale}px`,
-          transform: `translate(-50%, -50%) rotate(${placement.rotation}deg)`,
-          zIndex: isSelected || dragging ? 40 : 10 + index,
-        }
-        return (
-          <div key={key}>
-            {editing ? (
-              <button
-                type="button"
-                style={style}
-                aria-label={`Sticker ${index + 1}. Drag to move, or use arrow keys. Brackets tilt, minus and plus resize, Delete peels it off.`}
-                aria-pressed={isSelected}
-                onPointerDown={(event) => startDrag(event, placement)}
-                onPointerMove={moveDrag}
-                onPointerUp={() => endDrag(placement)}
-                onPointerCancel={() => setDrag(null)}
-                onKeyDown={(event) => handleKey(event, placement)}
-                onFocus={(event) => event.currentTarget.matches(':focus-visible') && setSelected(key)}
-                className={`pointer-events-auto absolute cursor-grab touch-none rounded-md active:cursor-grabbing ${
-                  isSelected ? 'outline-2 outline-offset-4 outline-dashed outline-accent' : ''
-                }`}
-              >
-                <StickerImage id={placement.stickerId} className="w-full" />
-              </button>
-            ) : (
-              <span style={style} className="absolute block">
-                <StickerImage id={placement.stickerId} className="w-full" />
-              </span>
-            )}
-            {isSelected && !dragging && (
-              <div
-                className="pointer-events-auto absolute z-50 flex -translate-x-1/2 gap-1 rounded-full border border-line bg-card p-1 shadow-md"
-                style={{ left: `${clamp(x, 12, 88)}%`, top: `calc(${y}% + ${(size * placement.scale) / 2 + 10}px)` }}
-              >
-                {[
-                  ['⟲', 'Tilt left', { rotation: placement.rotation - 10 }],
-                  ['⟳', 'Tilt right', { rotation: placement.rotation + 10 }],
-                  ['−', 'Smaller', { scale: placement.scale - 0.15 }],
-                  ['+', 'Bigger', { scale: placement.scale + 0.15 }],
-                ].map(([symbol, name, changes]) => (
-                  <button
-                    key={name}
-                    type="button"
-                    aria-label={name}
-                    title={name}
-                    onClick={() => nudge(placement, changes)}
-                    className="grid size-7 place-items-center rounded-full text-sm text-ink hover:bg-sidebar"
-                  >
-                    {symbol}
-                  </button>
-                ))}
+    <>
+      {/* The pictures, always behind the card's content */}
+      <div ref={layer} aria-hidden="true" className="pointer-events-none absolute inset-0 z-[-1]">
+        {placements.map((placement, index) => {
+          const spot = place(placement, index)
+          return (
+            <span key={spot.key} style={styleOf(spot, placement)} className="absolute block">
+              <StickerImage id={placement.stickerId} className="w-full" />
+            </span>
+          )
+        })}
+      </div>
+      {editing && (
+        <div role="group" aria-label={label} className="pointer-events-none absolute inset-0 z-30">
+          {placements.map((placement, index) => {
+            const spot = place(placement, index)
+            return (
+              <div key={spot.key}>
+                {/* An invisible handle the size of the sticker, so it can be grabbed through the text */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelected(null)
-                    onRemove?.(placement)
-                  }}
-                  className="rounded-full px-2 text-[10px] font-semibold uppercase tracking-wider text-brand hover:bg-brand/10"
+                  style={{ ...styleOf(spot, placement), zIndex: spot.isSelected || spot.dragging ? 40 : index + 1 }}
+                  aria-label={`Sticker ${index + 1}. Drag to move, or use arrow keys. Brackets tilt, minus and plus resize, Delete peels it off.`}
+                  aria-pressed={spot.isSelected}
+                  onPointerDown={(event) => startDrag(event, placement)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={() => endDrag(placement)}
+                  onPointerCancel={() => setDrag(null)}
+                  onKeyDown={(event) => handleKey(event, placement)}
+                  onFocus={(event) => event.currentTarget.matches(':focus-visible') && setSelected(spot.key)}
+                  className={`pointer-events-auto absolute cursor-grab touch-none rounded-md active:cursor-grabbing ${
+                    spot.isSelected
+                      ? 'outline-2 outline-offset-4 outline-dashed outline-accent'
+                      : 'hover:outline-1 hover:outline-offset-2 hover:outline-dashed hover:outline-accent/60'
+                  }`}
                 >
-                  Peel off
+                  <StickerImage id={placement.stickerId} className="w-full opacity-0" />
                 </button>
+                {spot.isSelected && !spot.dragging && (
+                  <div
+                    className="pointer-events-auto absolute z-50 flex -translate-x-1/2 gap-1 rounded-full border border-line bg-card p-1 shadow-md"
+                    style={{ left: `${clamp(spot.x, 12, 88)}%`, top: `calc(${spot.y}% + ${(size * placement.scale) / 2 + 10}px)` }}
+                  >
+                    {[
+                      ['⟲', 'Tilt left', { rotation: placement.rotation - 10 }],
+                      ['⟳', 'Tilt right', { rotation: placement.rotation + 10 }],
+                      ['−', 'Smaller', { scale: placement.scale - 0.15 }],
+                      ['+', 'Bigger', { scale: placement.scale + 0.15 }],
+                    ].map(([symbol, name, changes]) => (
+                      <button
+                        key={name}
+                        type="button"
+                        aria-label={name}
+                        title={name}
+                        onClick={() => nudge(placement, changes)}
+                        className="grid size-7 place-items-center rounded-full text-sm text-ink hover:bg-sidebar"
+                      >
+                        {symbol}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected(null)
+                        onRemove?.(placement)
+                      }}
+                      className="rounded-full px-2 text-[10px] font-semibold uppercase tracking-wider text-brand hover:bg-brand/10"
+                    >
+                      Peel off
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
+            )
+          })}
+        </div>
+      )}
+    </>
   )
 }

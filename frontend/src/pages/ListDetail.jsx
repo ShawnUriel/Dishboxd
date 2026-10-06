@@ -73,7 +73,7 @@ function BoxContent({ box }) {
         <div style={folder} className="absolute top-0 left-0 flex h-10 items-center gap-2 rounded-t-xl border border-b-0 border-ink/10 px-5 text-[10px] font-semibold uppercase tracking-[0.16em]">
           <FolderIcon /> From your card catalog
         </div>
-        <div style={folder} className="relative rounded-tl-none rounded-tr-2xl border border-ink/10 px-6 py-7 sm:px-8 sm:py-8">
+        <div style={folder} className="relative isolate rounded-tl-none rounded-tr-2xl border border-ink/10 px-6 py-7 sm:px-8 sm:py-8">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0 flex-1 basis-64">
               <p className="mb-3 text-[10px] uppercase tracking-[0.2em] opacity-75">A collection of good places</p>

@@ -516,7 +516,7 @@ function ProfileHeader({ profile, stickers: initialStickers, own, busy, onUpload
   const stickers = useStickerPlacements({ type: 'profile', id: profile.id }, initialStickers)
   return (
     <>
-      <header className="paper-card relative overflow-hidden p-6 sm:p-9">
+      <header className="paper-card relative isolate overflow-hidden p-6 sm:p-9">
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-2 bg-brand" />
         <div className="flex flex-col items-start gap-6 sm:flex-row">
           <div className="shrink-0">

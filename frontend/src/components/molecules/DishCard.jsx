@@ -21,7 +21,7 @@ export default function DishCard({ index, dish, listId, onChange, onRemove, canR
   }
 
   return (
-    <li className={`dish-card relative rounded-xl border bg-card p-4 sm:p-5 ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : 'border-card-edge'}`}>
+    <li className={`dish-card relative isolate rounded-xl border bg-card p-4 sm:p-5 ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : 'border-card-edge'}`}>
       <div className="flex items-center justify-between gap-3">
         <span className="rounded-sm bg-sidebar px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
           Item {String(number).padStart(2, '0')}

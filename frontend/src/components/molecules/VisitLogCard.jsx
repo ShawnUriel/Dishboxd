@@ -15,7 +15,7 @@ import { visitTotal } from '../../lib/stats.js'
 // Either way, every item is listed with its own score and note.
 export default function VisitLogCard({ visit, restaurant }) {
   return (
-    <li className="relative flex items-start gap-4 border-b border-dashed border-line py-4 last:border-b-0">
+    <li className="relative isolate flex items-start gap-4 border-b border-dashed border-line py-4 last:border-b-0">
       <RatingCircle value={visit.rating} decimals={restaurant ? 1 : 0} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3">

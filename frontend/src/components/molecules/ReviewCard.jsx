@@ -65,7 +65,7 @@ export default function ReviewCard({
 
   return (
     <div className="mx-auto w-full max-w-[40rem]">
-      <article className={`paper-card relative mx-auto w-full max-w-[40rem] p-4 sm:p-5 ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
+      <article className={`paper-card relative isolate mx-auto w-full max-w-[40rem] p-4 sm:p-5 ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
         {!preview && (review.reposted || named.length > 0) && (
           <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
             ↻{' '}
