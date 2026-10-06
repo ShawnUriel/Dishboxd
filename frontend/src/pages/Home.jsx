@@ -62,6 +62,7 @@ export default function Home() {
     return () => controller.abort()
   }, [tab, refresh])
   const byId = new Map(restaurants.map((r) => [r.id, r]))
+  const visitsById = new Map(visits.map((visit) => [visit.id, visit]))
   const recent = [...visits].sort(newestFirst).slice(0, 10)
   const favourite = restaurants
     .map((r) => ({ ...r, rating: averageRating(visits.filter((v) => v.restaurantId === r.id)) }))
@@ -104,6 +105,10 @@ export default function Home() {
     setLoading(value !== 'journal')
     setError('')
     setTab(value)
+  }
+  function reviewChanged(partial) {
+    setSocialReviews((current) => mergeReview(current, partial))
+    updateVisit(partial)
   }
   return (
     <div className="page-enter">
@@ -179,7 +184,7 @@ export default function Home() {
       </div>
       <HomeTrays boxes={boxes} visits={visits} restaurantsById={byId} />
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-      <section aria-labelledby="journal-title" className="min-w-0">
+      <section aria-labelledby="journal-title" className="mx-auto w-full min-w-0 max-w-[40rem]">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h2 id="journal-title" className="font-serif text-2xl font-semibold">
               {tab === 'journal' ? 'Fresh from your tray' : tab === 'foryou' ? 'Around your table' : 'Fresh discoveries'}
@@ -284,9 +289,9 @@ export default function Home() {
               {socialReviews.map((review) => (
                 <ReviewCard
                   key={review.id}
-                  review={review}
+                  review={visitsById.has(review.id) ? { ...review, stickers: visitsById.get(review.id).stickers ?? [] } : review}
                   currentUserId={session?.user.id}
-                  onChange={(partial) => setSocialReviews((current) => mergeReview(current, partial))}
+                  onChange={reviewChanged}
                 />
               ))}
               {hasMore && (

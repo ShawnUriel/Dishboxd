@@ -9,6 +9,7 @@ import { FolderIcon } from '../components/atoms/Icon.jsx'
 import CategoryField from '../components/molecules/CategoryField.jsx'
 import CoauthorPicker from '../components/molecules/CoauthorPicker.jsx'
 import RestaurantNameField from '../components/molecules/RestaurantNameField.jsx'
+import ReviewStickerComposer from '../components/molecules/ReviewStickerComposer.jsx'
 import TicketPlacePhoto from '../components/molecules/TicketPlacePhoto.jsx'
 import DishEntryList from '../components/organisms/DishEntryList.jsx'
 import { api } from '../lib/api.js'
@@ -23,7 +24,7 @@ export default function VisitForm() {
   const location = useLocation()
   const initialPlace = location.state?.place
   const navigate = useNavigate()
-  const { addVisit, addBox, visits, restaurants, boxes } = useJournal()
+  const { addVisit, addBox, visits, restaurants, boxes, stickers: stickerBook } = useJournal()
   const [boxId, setBoxId] = useState(() => {
     const requested = location.state?.boxId || new URLSearchParams(location.search).get('boxId')
     return boxes.some((box) => box.id === requested) ? requested : ''
@@ -49,6 +50,8 @@ export default function VisitForm() {
   const [coauthor, setCoauthor] = useState(null)
   const [choosingCoauthor, setChoosingCoauthor] = useState(false)
   const [photoIds, setPhotoIds] = useState([])
+  const [stickerDraft, setStickerDraft] = useState([])
+  const [stickerBusy, setStickerBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [triedSubmit, setTriedSubmit] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -80,6 +83,9 @@ export default function VisitForm() {
         : null,
     }))
   const onFire = reviewOnFire({ dishes: filledDishes })
+  // Deleting a sticker from the book also removes it from this unsaved review.
+  const stickerIds = new Set(stickerBook.map((sticker) => sticker.id))
+  const reviewStickers = stickerDraft.filter((placement) => stickerIds.has(placement.stickerId))
   let problem = ''
   if (boxEditorOpen) problem = 'Create a box in your tray to keep this review.'
   else if (!selectedBox) problem = 'Choose a box from your tray for this review.'
@@ -172,7 +178,7 @@ export default function VisitForm() {
     event.preventDefault()
     setTriedSubmit(true)
     setSaveError('')
-    if (problem || saving || uploading || creatingBox) return
+    if (problem || saving || uploading || creatingBox || stickerBusy) return
     setSaving(true)
     try {
       const savedId = await addVisit(place, {
@@ -185,6 +191,7 @@ export default function VisitForm() {
         category: category.trim(),
         coauthorId: coauthor?.id ?? null,
         boxId: selectedBox.id,
+        stickers: reviewStickers.map(({ stickerId, x, y, rotation, scale }) => ({ stickerId, x, y, rotation, scale })),
       })
       navigate(`/restaurant/${savedId}`)
     } catch (failure) {
@@ -399,6 +406,21 @@ export default function VisitForm() {
                 </p>
               )}
             </section>
+            <ReviewStickerComposer
+              review={{
+                id: 'draft',
+                restaurant: { name: place.name || 'Your next good meal', address: place.address, category },
+                date: date || todayIso(),
+                rating,
+                dishes: filledDishes,
+                notes,
+                photoIds,
+              }}
+              placements={reviewStickers}
+              onChange={setStickerDraft}
+              onBusyChange={setStickerBusy}
+              disabled={saving || uploading}
+            />
             <section aria-labelledby="coauthor-label" className="rounded-md border border-line bg-paper p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 id="coauthor-label" className="text-sm">
@@ -460,10 +482,10 @@ export default function VisitForm() {
             </p>
           )}
           <footer className="flex gap-3 border-t border-dashed border-line px-6 py-6 sm:px-8">
-            <Button variant="secondary" onClick={() => navigate('/')} disabled={saving || creatingBox}>
+            <Button variant="secondary" onClick={() => navigate('/')} disabled={saving || creatingBox || stickerBusy}>
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={saving || uploading || creatingBox}>
+            <Button type="submit" className="flex-1" disabled={saving || uploading || creatingBox || stickerBusy}>
               {saving ? 'Stamping…' : 'Stamp & submit'}
             </Button>
           </footer>

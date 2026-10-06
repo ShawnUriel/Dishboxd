@@ -5,7 +5,7 @@ import { useJournal } from '../../state/useJournal.js'
 
 // Turn any picture into a sticker: just the image, pixelated, flat "vector" colours or
 // translucent, with an optional cut-out background and white sticker edge.
-export default function StickerMaker({ onDone, onCancel }) {
+export default function StickerMaker({ onDone, onCancel, onBusyChange }) {
   const { addSticker } = useJournal()
   const [source, setSource] = useState(null)
   const [options, setOptions] = useState({ style: 'original', cutOut: true, outline: true })
@@ -53,13 +53,16 @@ export default function StickerMaker({ onDone, onCancel }) {
   async function save() {
     if (!preview || busy) return
     setBusy(true)
+    onBusyChange?.(true)
     setError('')
     try {
       const sticker = await addSticker(preview.blob, options.style)
       onDone?.(sticker)
     } catch (failure) {
       setError(failure.message)
+    } finally {
       setBusy(false)
+      onBusyChange?.(false)
     }
   }
 

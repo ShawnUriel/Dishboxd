@@ -157,7 +157,7 @@ function ProfileContent({ id }) {
       reviews: mergeReview(current.reviews, partial),
       reposts: mergeReview(current.reposts ?? [], partial),
     }))
-    if (own) updateVisit(partial)
+    updateVisit(partial)
   }
 
   async function saveTopPicks(next) {
@@ -195,6 +195,7 @@ function ProfileContent({ id }) {
   const { profile, restaurants } = data
   const picks = data.topPicks ?? []
   const byId = new Map(journalRestaurants.map((r) => [r.id, r]))
+  const visitsById = new Map(visits.map((visit) => [visit.id, visit]))
   const categories = categoryCounts(restaurants)
   const shownRestaurants = category ? restaurants.filter((r) => categoryName(r) === category) : restaurants
 
@@ -219,7 +220,7 @@ function ProfileContent({ id }) {
           return (
             <ReviewCard
               key={review.id}
-              review={review}
+              review={visitsById.has(review.id) ? { ...review, stickers: visitsById.get(review.id).stickers ?? [] } : review}
               restaurant={authored ? (byId.get(review.restaurantId) ?? review.restaurant) : review.restaurant}
               own={authored}
               showAuthor={!authored}

@@ -4,6 +4,7 @@ import RatingCircle from '../atoms/RatingCircle.jsx'
 import Photo from '../atoms/Photo.jsx'
 import ScoreBadge from '../atoms/ScoreBadge.jsx'
 import StickerImage from '../atoms/StickerImage.jsx'
+import StickerLayer from './StickerLayer.jsx'
 import { formatDate, formatMoney } from '../../lib/format.js'
 import { isOnFire, reviewOnFire } from '../../lib/scores.js'
 import { visitTotal } from '../../lib/stats.js'
@@ -14,7 +15,7 @@ import { visitTotal } from '../../lib/stats.js'
 // Either way, every item is listed with its own score and note.
 export default function VisitLogCard({ visit, restaurant }) {
   return (
-    <li className="flex items-start gap-4 border-b border-dashed border-line py-4 last:border-b-0">
+    <li className="relative flex items-start gap-4 border-b border-dashed border-line py-4 last:border-b-0">
       <RatingCircle value={visit.rating} decimals={restaurant ? 1 : 0} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3">
@@ -69,7 +70,14 @@ export default function VisitLogCard({ visit, restaurant }) {
             ))}
           </div>
         )}
+        <Link
+          to={`/review/${visit.id}`}
+          className="mt-3 inline-block text-xs text-accent underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          Open review &amp; {visit.stickers?.length ? 'edit' : 'add'} stickers
+        </Link>
       </div>
+      <StickerLayer placements={visit.stickers ?? []} size={58} label="Stickers on this review" />
     </li>
   )
 }

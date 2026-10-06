@@ -7,6 +7,7 @@ const { readPlacement } = require('./stickers')
 
 const router = express.Router()
 const MAX_DISHES = 20
+const MAX_REVIEW_STICKERS = 12
 
 // GET /api/visits: the user's visits, newest first, each with its dishes in ticket order
 router.get('/', async (req, res) => {
@@ -48,6 +49,10 @@ function readTicket(body) {
   if (body.isPublic !== undefined && typeof body.isPublic !== 'boolean')
     throw new ValidationError('Sharing must be true or false.')
   ticket.isPublic = body.isPublic ?? false
+  const stickers = body.stickers === undefined ? [] : body.stickers
+  if (!Array.isArray(stickers) || stickers.length > MAX_REVIEW_STICKERS)
+    throw new ValidationError(`A review can hold up to ${MAX_REVIEW_STICKERS} stickers.`)
+  ticket.stickers = stickers.map((sticker, index) => readPlacement(sticker, `Review sticker ${index + 1}`))
   ticket.photoIds = body.photoIds ?? []
   if (
     !Array.isArray(ticket.photoIds) ||
@@ -187,6 +192,15 @@ router.post('/', async (req, res) => {
         `INSERT INTO sticker_placements (user_id, sticker_id, dish_id, x, y, rotation, scale)
          SELECT $1, s.id, $3, $4, $5, $6, $7 FROM stickers s WHERE s.id = $2 AND s.user_id = $1`,
         [req.userId, stickerId, dishIds.get(index + 1), x, y, rotation, scale],
+      )
+      if (placed.rowCount !== 1)
+        throw new ValidationError('One of your stickers is unavailable. Choose it again.')
+    }
+    for (const { stickerId, x, y, rotation, scale } of ticket.stickers) {
+      const placed = await client.query(
+        `INSERT INTO sticker_placements (user_id, sticker_id, visit_id, x, y, rotation, scale)
+         SELECT $1, s.id, $3, $4, $5, $6, $7 FROM stickers s WHERE s.id = $2 AND s.user_id = $1`,
+        [req.userId, stickerId, visitId, x, y, rotation, scale],
       )
       if (placed.rowCount !== 1)
         throw new ValidationError('One of your stickers is unavailable. Choose it again.')

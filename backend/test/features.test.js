@@ -131,6 +131,119 @@ test('item reviews, categories, boxes, stickers, likes, reposts and co-reviews a
     assert.deepEqual(book.data.stickers.map((sticker) => sticker.id), [alexSticker.id])
   })
 
+  await t.test('a new review saves up to twelve stickers with their positions and sharing', async () => {
+    const uploaded = await fetch(`${sandbox.url}/api/stickers?style=original`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${casey}`, 'Content-Type': 'image/png' },
+      body: PNG,
+    })
+    assert.equal(uploaded.status, 201)
+    const sticker = (await uploaded.json()).sticker
+    const stickers = Array.from({ length: 12 }, (_, index) => ({
+      stickerId: sticker.id,
+      x: index === 11 ? 100 : index * 8,
+      y: index === 0 ? 100 : index * 3,
+      rotation: index === 0 ? -45 : 45,
+      scale: index === 0 ? 0.5 : 2,
+    }))
+    const saved = await request(casey, '/api/visits', {
+      method: 'POST', body: { ...ticket, place: { name: 'Sticker Kitchen' }, stickers },
+    })
+    assert.equal(saved.status, 201)
+    const review = saved.data.visit
+    assert.equal(review.stickers.length, 12)
+    assert.equal(new Set(review.stickers.map((placement) => placement.id)).size, 12)
+    assert.deepEqual(
+      review.stickers.map(({ id, ...placement }) => placement).sort((a, b) => a.x - b.x),
+      stickers,
+    )
+    const journal = await request(casey, '/api/visits')
+    assert.deepEqual(journal.data.visits.find((item) => item.id === review.id).stickers, review.stickers)
+    assert.equal((await request(casey, `/api/stickers/${sticker.id}/image`)).status, 200)
+    assert.equal((await request(alex, `/api/stickers/${sticker.id}/image`)).status, 404)
+    assert.equal((await request(alex, `/api/reviews/${review.id}`)).status, 404)
+
+    await request(casey, `/api/visits/${review.id}`, { method: 'PATCH', body: { isPublic: true } })
+    const shared = await request(alex, `/api/reviews/${review.id}`)
+    assert.equal(shared.status, 200)
+    assert.deepEqual(shared.data.review.stickers, review.stickers)
+    assert.equal((await request(alex, `/api/stickers/${sticker.id}/image`)).status, 200)
+    const feed = (await request(alex, '/api/profiles/feed?scope=discover')).data.reviews
+    assert.deepEqual(feed.find((item) => item.id === review.id).stickers, review.stickers)
+    assert.equal((await request(casey, '/api/stickers/placements', {
+      method: 'POST', body: { stickerId: sticker.id, target: { type: 'visit', id: review.id } },
+    })).status, 400)
+
+    await request(casey, `/api/visits/${review.id}`, { method: 'PATCH', body: { isPublic: false } })
+    assert.equal((await request(alex, `/api/stickers/${sticker.id}/image`)).status, 404)
+  })
+
+  await t.test('invalid review stickers and transforms save nothing', async () => {
+    const before = (await request(alex, '/api/visits')).data.visits
+    const beforePlaces = (await request(alex, '/api/restaurants')).data.restaurants
+    const placement = { stickerId: alexSticker.id }
+    const invalid = [
+      null, {}, 'sticker', [null], [{ stickerId: 'invalid' }], Array(13).fill(placement),
+      ...[
+        { x: -1 }, { x: 101 }, { y: -1 }, { y: 101 }, { rotation: -46 }, { rotation: 46 },
+        { scale: 0.49 }, { scale: 2.01 }, { x: 'left' },
+      ].map((position) => [{ ...placement, ...position }]),
+    ]
+    for (const stickers of invalid) {
+      const refused = await request(alex, '/api/visits', {
+        method: 'POST', body: { ...ticket, place: { name: 'Invalid Sticker Cafe' }, stickers },
+      })
+      assert.equal(refused.status, 400, JSON.stringify(stickers))
+      assert.match(refused.data.error, /sticker/i)
+    }
+    assert.deepEqual((await request(alex, '/api/visits')).data.visits, before)
+    assert.deepEqual((await request(alex, '/api/restaurants')).data.restaurants, beforePlaces)
+  })
+
+  await t.test('review sticker and later photo failures roll back the entire ticket and tray', async () => {
+    const snapshot = async () => ({
+      visits: (await request(alex, '/api/visits')).data.visits,
+      places: (await request(alex, '/api/restaurants')).data.restaurants,
+      boxes: (await request(alex, '/api/boxes')).data.boxes,
+      stickers: (await request(alex, '/api/stickers')).data.stickers,
+      counts: (await sandbox.pool.query(`SELECT
+        (SELECT count(*)::int FROM dishes) AS dishes,
+        (SELECT count(*)::int FROM sticker_placements) AS placements`)).rows[0],
+    })
+    const before = await snapshot()
+    for (const stickerId of [beaSticker.id, '00000000-0000-0000-0000-000000000000']) {
+      const refused = await request(alex, '/api/visits', {
+        method: 'POST',
+        body: {
+          ...ticket,
+          place: { name: 'Rolled Back Sticker Cafe' },
+          boxId: box.id,
+          dishes: [{ name: 'Tea', price: 1, sticker: { stickerId: alexSticker.id } }],
+          stickers: [{ stickerId: alexSticker.id }, { stickerId }],
+        },
+      })
+      assert.equal(refused.status, 400)
+      assert.match(refused.data.error, /sticker/i)
+      assert.deepEqual(await snapshot(), before)
+    }
+
+    // A later failure also undoes valid stickers and edits to an existing place.
+    const refused = await request(alex, '/api/visits', {
+      method: 'POST',
+      body: {
+        ...ticket,
+        restaurantId: restaurant.id,
+        category: 'Must not change',
+        boxId: box.id,
+        stickers: [{ stickerId: alexSticker.id }],
+        photoIds: ['00000000-0000-0000-0000-000000000000'],
+      },
+    })
+    assert.equal(refused.status, 400)
+    assert.match(refused.data.error, /photos/)
+    assert.deepEqual(await snapshot(), before)
+  })
+
   await t.test('stickers go only on your own cards, and private cards keep them private', async () => {
     const place = (user, stickerId, type, id, extra = {}) =>
       request(user, '/api/stickers/placements', {

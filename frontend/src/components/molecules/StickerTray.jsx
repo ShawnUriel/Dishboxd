@@ -5,7 +5,7 @@ import StickerMaker from './StickerMaker.jsx'
 import { useJournal } from '../../state/useJournal.js'
 
 // The sticker book: tap a sticker to stick it on, or make a new one from a picture.
-export default function StickerTray({ onPick, onClose, title = 'Your sticker book' }) {
+export default function StickerTray({ onPick, onClose, onBusyChange, title = 'Your sticker book' }) {
   const { stickers, deleteSticker } = useJournal()
   const [making, setMaking] = useState(false)
   const [managing, setManaging] = useState(false)
@@ -50,6 +50,7 @@ export default function StickerTray({ onPick, onClose, title = 'Your sticker boo
       </div>
       {making ? (
         <StickerMaker
+          onBusyChange={onBusyChange}
           onDone={(sticker) => {
             setMaking(false)
             onPick?.(sticker.id)

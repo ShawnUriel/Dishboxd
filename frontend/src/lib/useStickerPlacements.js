@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 
 // Stickers stuck on one saved card (a profile, review, box or dish): add, move, tilt, resize, peel off.
@@ -7,6 +7,18 @@ export function useStickerPlacements(target, initial = [], onSync) {
   const [placements, setPlacements] = useState(initial)
   const [error, setError] = useState('')
   const current = useRef(initial)
+  const received = useRef({ target: `${target.type}:${target.id}`, signature: JSON.stringify(initial) })
+
+  useEffect(() => {
+    const targetKey = `${target.type}:${target.id}`
+    const signature = JSON.stringify(initial)
+    // Callers can pass a fresh [] on every render. Only external content changes
+    // should replace local edits; unchanged props must not reset an optimistic move.
+    if (received.current.target === targetKey && received.current.signature === signature) return
+    received.current = { target: targetKey, signature }
+    current.current = initial
+    setPlacements(initial)
+  }, [initial, target.type, target.id])
 
   function commit(next) {
     current.current = next
