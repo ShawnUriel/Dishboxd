@@ -101,7 +101,9 @@ function toReview(row) {
       address: row.restaurant_address,
       category: row.restaurant_category,
     },
-    ...(row.reposted_by ? { repostedBy: row.reposted_by } : {}),
+    // In feeds: who reposted it (newest first; repostedBy is the latest) and when it last moved
+    ...(row.reposters ? { reposters: row.reposters, repostedBy: row.reposters[0] } : {}),
+    ...(row.activity_at ? { activityAt: row.activity_at } : {}),
   }
 }
 

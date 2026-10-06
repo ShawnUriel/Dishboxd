@@ -21,9 +21,11 @@ export default function Home() {
   const { visits, restaurants, boxes, shareVisit, updateVisit } = useJournal()
   const [profile, setProfile] = useState(null)
   const [people, setPeople] = useState([])
-  const [tab, setTab] = useState('journal')
+  const [tab, setTab] = useState('foryou')
   const [socialReviews, setSocialReviews] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [refresh, setRefresh] = useState(0)
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function Home() {
     api(`/api/profiles/feed?scope=${tab}`, { signal: controller.signal })
       .then((data) => {
         setSocialReviews(data.reviews)
+        setHasMore(data.reviews.length === 20)
         setLoading(false)
       })
       .catch((failure) => {
@@ -79,6 +82,22 @@ export default function Home() {
     setPeople((current) => current.map((p) => (p.id === updated.id ? updated : p)))
     if (tab !== 'journal') setLoading(true)
     setRefresh((n) => n + 1)
+  }
+  // The next 20 reviews, continuing from the last one shown
+  async function loadMore() {
+    const last = socialReviews.at(-1)
+    if (!last?.activityAt || loadingMore) return
+    setLoadingMore(true)
+    setError('')
+    try {
+      const data = await api(`/api/profiles/feed?scope=${tab}&before=${encodeURIComponent(last.activityAt)}`)
+      setSocialReviews((current) => [...current, ...data.reviews.filter((review) => !current.some((r) => r.id === review.id))])
+      setHasMore(data.reviews.length === 20)
+    } catch (failure) {
+      setError(failure.message)
+    } finally {
+      setLoadingMore(false)
+    }
   }
   function changeTab(value) {
     if (value === tab) return
@@ -163,7 +182,7 @@ export default function Home() {
       <section aria-labelledby="journal-title" className="min-w-0">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h2 id="journal-title" className="font-serif text-2xl font-semibold">
-              {tab === 'journal' ? 'Fresh from your tray' : tab === 'following' ? 'Around your table' : 'Fresh discoveries'}
+              {tab === 'journal' ? 'Fresh from your tray' : tab === 'foryou' ? 'Around your table' : 'Fresh discoveries'}
             </h2>
             <div
               className="flex gap-1 rounded-md border border-line bg-card p-1"
@@ -171,8 +190,8 @@ export default function Home() {
               aria-label="Choose a review feed"
             >
               {[
+                ['foryou', 'For you'],
                 ['journal', 'Yours'],
-                ['following', 'Following'],
                 ['discover', 'Discover'],
               ].map(([value, label]) => (
                 <button
@@ -270,15 +289,20 @@ export default function Home() {
                   onChange={(partial) => setSocialReviews((current) => mergeReview(current, partial))}
                 />
               ))}
+              {hasMore && (
+                <Button variant="secondary" className="w-full" disabled={loadingMore} onClick={loadMore}>
+                  {loadingMore ? 'Gathering more stories…' : 'Load more'}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="paper-card p-8">
               <h3 className="font-serif text-2xl font-semibold">
-                {tab === 'following' ? 'Make room at your table.' : 'The next story could be yours.'}
+                {tab === 'foryou' ? 'Your table is quiet, for now.' : 'The next story could be yours.'}
               </h3>
               <p className="mt-3 text-sm leading-7 text-muted">
-                {tab === 'following'
-                  ? 'Follow diners to see their shared reviews here. Private reviews always stay in their journals.'
+                {tab === 'foryou'
+                  ? 'Follow diners to see their shared reviews and reposts here. Reviews you repost from Discover show up here too.'
                   : 'No shared reviews from other diners yet. Share one of yours from your profile.'}
               </p>
               <Link

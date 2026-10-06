@@ -37,6 +37,12 @@ export default function ReviewCard({
   const level = fireLevel(hottestScore(review))
   const coauthor = review.coauthor?.status === 'accepted' ? review.coauthor : null
   const authors = [review.author, coauthor].filter(Boolean)
+  // Who reposted it: you (when you did) first, then the people you follow, newest first
+  const otherReposters = (review.reposters ?? (review.repostedBy ? [review.repostedBy] : [])).filter(
+    (person) => person.id !== currentUserId,
+  )
+  const named = otherReposters.slice(0, review.reposted ? 1 : 2)
+  const moreReposters = otherReposters.length - named.length
   const isAuthor = own || (currentUserId && review.author?.id === currentUserId)
 
   async function toggleShare() {
@@ -53,12 +59,24 @@ export default function ReviewCard({
 
   return (
     <article className={`paper-card relative p-5 sm:p-6 ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
-      {review.repostedBy && (
+      {(review.reposted || named.length > 0) && (
         <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
-          ↻ Reposted by{' '}
-          <Link to={`/profile/${review.repostedBy.id}`} className="underline underline-offset-4">
-            {review.repostedBy.name}
-          </Link>
+          ↻{' '}
+          {[
+            ...(review.reposted ? [<span key="you">You</span>] : []),
+            ...named.map((person) => (
+              <Link key={person.id} to={`/profile/${person.id}`} className="underline underline-offset-4">
+                {person.name}
+              </Link>
+            )),
+            ...(moreReposters > 0 ? [<span key="more">{moreReposters} {moreReposters === 1 ? 'other' : 'others'}</span>] : []),
+          ].map((part, index, parts) => (
+            <span key={index}>
+              {index > 0 && (index === parts.length - 1 ? ' and ' : ', ')}
+              {part}
+            </span>
+          ))}{' '}
+          reposted
         </p>
       )}
       {showAuthor && authors.length > 0 && (

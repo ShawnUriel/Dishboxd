@@ -223,7 +223,7 @@ Stick them on your profile card, your review cards, your boxes and each item on 
 
 Use the **PROFILE** tab to upload an avatar and edit your display name, unique username and bio (up to 280 characters). Choose up to four **Top picks** from restaurants with a shared review. Your profile includes recent reviews, reviewed restaurants, and follower/following counts that open their member lists. Your own recent-review tab also shows your private entries, labelled as private; other diners see shared entries only.
 
-The **FRIENDS** tab (`/friends`) gathers your people. **Friends** follow each other; **Follow back** lists diners who follow you; **Following** lists those who have not followed back yet; **Find diners** searches the directory by display name or username. Profiles and person cards show a **Friends** or **Follows you** badge. Home's **Following** tab shows shared reviews written or co-written by diners you follow, and reviews they reposted (credited "Reposted by…"); **Discover** shows shared reviews from other diners. Review cards in your own profile can be shared or made private later. Making a review private also removes its photos from other diners' access and updates the public restaurant summary.
+The **FRIENDS** tab (`/friends`) gathers your people. **Friends** follow each other; **Follow back** lists diners who follow you; **Following** lists those who have not followed back yet; **Find diners** searches the directory by display name or username. Profiles and person cards show a **Friends** or **Follows you** badge. Home opens on **For you**, a feed like a "for you" page: shared reviews written or co-written by diners you follow, the reviews they reposted, and your own reposts. Each review shows once, at its latest post or repost, credited to everyone who reposted it ("You and Bea Santos reposted"), newest first, 20 at a time with **Load more**. **Yours** is your own journal; **Discover** shows shared reviews from other diners. Review cards in your own profile can be shared or made private later. Making a review private also removes its photos from other diners' access and updates the public restaurant summary.
 
 On a shared review, **♥** likes it (once per diner) and **↻** reposts it to your followers; your reposts are listed on your profile's **Reposts** tab. **Share** opens the phone's share sheet, or copies the review's link (`/review/:id`), which opens for signed-in diners.
 
@@ -240,7 +240,7 @@ The uploader accepts JPEG, PNG and WebP files up to 12 MB, resizes them and conv
 | `/login` | Log in | Email and password, or **Continue with Google** |
 | `/signup` | Sign up | Name, email and password, or **Continue with Google** |
 | `/verify-email` | Check your email | Enter the emailed code; **Send a new code** |
-| `/` | The Log | Welcome card, statistics, Yours/Following/Discover review feeds, suggestions and **NEW ENTRY** |
+| `/` | The Log | Welcome card, statistics, For you/Yours/Discover review feeds, suggestions and **NEW ENTRY** |
 | `/search` | Card Catalog | Matching journal/Google restaurants with category tags, **On file by category** chips, real photos with credits, and a NEW card to add a restaurant yourself |
 | `/log/new` | Dishboxd Ticket | On a plate at the table: Google photo (when available), restaurant fields, category, visit date, rating, one container per item (price, score, note, sticker), review, photos, co-author invite and optional sharing |
 | `/profile` | My profile | Editable name, username, bio, avatar, top picks and stickers (**Decorate**); reviews (incl. accepted co-reviews), reposts, restaurants and connections |
@@ -283,7 +283,7 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 | `GET` | `/api/profiles/friends` | | `{ friends, followBack, following }`: friends follow each other | `200` |
 | `GET` | `/api/profiles/:id/connections?type=followers` | | Follower list; use `type=following` for following | `200` |
 | `PUT` / `DELETE` | `/api/profiles/:id/follow` | | Follows/unfollows a diner idempotently | `200` |
-| `GET` | `/api/profiles/feed?scope=following` | | Latest shared reviews written, co-written or reposted by diners you follow (with `repostedBy`); `scope=discover` shows other diners' shared reviews | `200` |
+| `GET` | `/api/profiles/feed?scope=foryou` | | Home's feed: shared reviews written or co-written by diners you follow, their reposts and your own reposts, once each at their latest activity, with `reposters` and `activityAt`. `scope=following` leaves out your own reposts; `scope=discover` shows other diners' shared reviews. 20 per page; `&before=<activityAt>` gives the next page | `200` |
 | `GET` | `/api/reviews/:id` | | One review the user may see (shared, theirs, or one they were invited to co-author) | `200` `{ review }` |
 | `PUT` / `DELETE` | `/api/reviews/:id/like` | | Likes or unlikes a review the user can see, idempotently | `200` `{ likeCount, liked, repostCount, reposted }` |
 | `PUT` / `DELETE` | `/api/reviews/:id/repost` | | Reposts or un-reposts someone else's shared review | `200` (same counts) |

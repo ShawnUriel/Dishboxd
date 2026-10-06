@@ -62,38 +62,48 @@ router.patch('/me', async (req, res) => {
   res.json({ profile: toProfile(rows[0]) })
 })
 
-// GET /api/profiles/feed?scope=following|discover
-// Following: shared reviews written or co-written by diners you follow, and the ones they reposted
-// (a review shows once, with its latest repost). Discover: every other diner's shared reviews.
+// GET /api/profiles/feed?scope=foryou|following|discover&before=<ISO time>
+// For you (Home's main feed, like a "for you" page): shared reviews written or co-written by diners
+// you follow, the reviews they reposted, and your own reposts.
+// Following: the same without your own reposts. Discover: every other diner's shared reviews.
+// A review shows once, at its latest post or repost, with everyone who reposted it, newest first.
+// Pages hold 20 reviews; pass the last review's activityAt as `before` for the next page.
 router.get('/feed', async (req, res) => {
-  const following = req.query.scope === 'following'
+  const scope = ['foryou', 'following'].includes(req.query.scope) ? req.query.scope : 'discover'
+  let before = null
+  if (req.query.before !== undefined) {
+    const date = new Date(String(req.query.before))
+    if (Number.isNaN(date.getTime())) throw new ValidationError('before must be a date and time.')
+    before = date.toISOString()
+  }
   const followed = (column) => `EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.following_id = ${column})`
+  const byPeopleYouFollow = `(${followed('v.user_id')} OR EXISTS (SELECT 1 FROM visit_coauthors co
+    WHERE co.visit_id = v.id AND co.status = 'accepted' AND ${followed('co.user_id')}))`
+  const reposters = scope === 'foryou' ? `(rp.user_id = $1 OR ${followed('rp.user_id')})` : `v.user_id <> $1 AND ${followed('rp.user_id')}`
+  const items =
+    scope === 'discover'
+      ? 'SELECT v.id AS visit_id, v.created_at AS at, NULL::uuid AS reposter_id FROM visit_logs v WHERE v.is_public AND v.user_id <> $1'
+      : `SELECT v.id AS visit_id, v.created_at AS at, NULL::uuid AS reposter_id
+         FROM visit_logs v WHERE v.is_public AND v.user_id <> $1 AND ${byPeopleYouFollow}
+         UNION ALL
+         SELECT rp.visit_id, rp.created_at, rp.user_id
+         FROM review_reposts rp JOIN visit_logs v ON v.id = rp.visit_id
+         WHERE v.is_public AND ${reposters}`
   const { rows } = await pool.query(
-    `WITH items AS (
-       SELECT v.id AS visit_id, v.created_at AS at, NULL::uuid AS reposter_id
-       FROM visit_logs v
-       WHERE v.is_public AND v.user_id <> $1
-         ${following ? `AND (${followed('v.user_id')} OR EXISTS (SELECT 1 FROM visit_coauthors co
-           WHERE co.visit_id = v.id AND co.status = 'accepted' AND ${followed('co.user_id')}))` : ''}
-       ${following ? `UNION ALL
-       SELECT rp.visit_id, rp.created_at, rp.user_id
-       FROM review_reposts rp JOIN visit_logs v ON v.id = rp.visit_id
-       WHERE v.is_public AND v.user_id <> $1 AND ${followed('rp.user_id')}` : ''}
-     ), latest AS (
-       SELECT DISTINCT ON (visit_id) visit_id, at, reposter_id FROM items ORDER BY visit_id, at DESC
-     )
-     SELECT ${reviewColumns},
-       (SELECT json_build_object('id', rpp.user_id, 'name', rpp.display_name, 'handle', rpp.handle)
-         FROM profiles rpp WHERE rpp.user_id = latest.reposter_id) AS reposted_by
+    `WITH items AS (${items}),
+     latest AS (SELECT visit_id, max(at) AS at FROM items GROUP BY visit_id)
+     SELECT ${reviewColumns}, latest.at AS activity_at,
+       (SELECT json_agg(json_build_object('id', rpp.user_id, 'name', rpp.display_name, 'handle', rpp.handle)
+           ORDER BY i.at DESC)
+         FROM items i JOIN profiles rpp ON rpp.user_id = i.reposter_id WHERE i.visit_id = latest.visit_id) AS reposters
      FROM latest JOIN visit_logs v ON v.id = latest.visit_id JOIN restaurants r ON r.id = v.restaurant_id
+     WHERE $2::timestamptz IS NULL OR latest.at < $2::timestamptz
      ORDER BY latest.at DESC, v.id DESC LIMIT 20`,
-    [req.userId],
+    [req.userId, before],
   )
   res.json({ reviews: rows.map(toReview) })
 })
 
-// GET /api/profiles/friends: the people around your table. Friends follow each other;
-// followBack follow you but you do not follow them yet; following you follow, not yet back.
 router.get('/friends', async (req, res) => {
   await ensureProfile(req.userId)
   const { rows } = await pool.query(
