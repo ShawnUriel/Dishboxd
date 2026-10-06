@@ -136,19 +136,25 @@ test('profiles, follows, review sharing and media boundaries against Postgres', 
     assert.equal(readable.headers.get('cache-control'), 'private, no-store')
     assert.equal((await request(alex, `/api/media/${photo}`, { method: 'DELETE' })).status, 404)
   })
-  await t.test('top picks accept only own restaurants with a shared review', async () => {
-    const body = {
-      name: 'Bea Santos',
-      handle: 'bea_eats',
-      bio: 'Coffee person.',
-      topPickIds: [saved.restaurant.id],
-    }
-    assert.equal((await request(bea, '/api/profiles/me', { method: 'PATCH', body })).status, 200)
+  await t.test('top picks: one place per category, each with a shared review and a dish', async () => {
+    const route = '/api/profiles/me/top-picks'
+    const pick = { category: 'Cafe', restaurantId: saved.restaurant.id, dish: 'Coffee' }
+    const set = await request(bea, route, { method: 'PUT', body: { picks: [pick] } })
+    assert.equal(set.status, 200)
+    assert.deepEqual(
+      set.data.topPicks.map((p) => [p.category, p.restaurant.name, p.dish]),
+      [['Cafe', 'Corner Cafe', 'Coffee']],
+    )
+    assert.equal((await request(alex, `/api/profiles/${bea}`)).data.topPicks[0].dish, 'Coffee')
+    // Not your restaurant, a repeated category (in any case), too many, or no restaurant
+    assert.equal((await request(alex, route, { method: 'PUT', body: { picks: [pick] } })).status, 400)
     assert.equal(
-      (await request(alex, '/api/profiles/me', { method: 'PATCH', body: { ...body, handle: 'alex_eats' } }))
-        .status,
+      (await request(bea, route, { method: 'PUT', body: { picks: [pick, { ...pick, category: ' cafe ' }] } })).status,
       400,
     )
+    const nine = Array.from({ length: 9 }, (_, i) => ({ ...pick, category: `Category ${i}` }))
+    assert.equal((await request(bea, route, { method: 'PUT', body: { picks: nine } })).status, 400)
+    assert.equal((await request(bea, route, { method: 'PUT', body: { picks: [{ category: 'Cafe' }] } })).status, 400)
     privateSaved = (
       await request(bea, '/api/visits', {
         method: 'POST',
@@ -156,14 +162,42 @@ test('profiles, follows, review sharing and media boundaries against Postgres', 
       })
     ).data
     assert.equal(
-      (
-        await request(bea, '/api/profiles/me', {
-          method: 'PATCH',
-          body: { ...body, topPickIds: [privateSaved.restaurant.id] },
-        })
-      ).status,
+      (await request(bea, route, { method: 'PUT', body: { picks: [{ ...pick, restaurantId: privateSaved.restaurant.id }] } }))
+        .status,
       400,
     )
+    // One place can be the favourite of two categories; the order is kept
+    const two = await request(bea, route, {
+      method: 'PUT',
+      body: { picks: [{ ...pick, category: 'Breakfast', dish: '' }, pick] },
+    })
+    assert.deepEqual(two.data.topPicks.map((p) => p.category), ['Breakfast', 'Cafe'])
+    assert.deepEqual((await request(bea, route, { method: 'PUT', body: { picks: [] } })).data.topPicks, [])
+    await request(bea, route, { method: 'PUT', body: { picks: [pick] } })
+  })
+  await t.test('earlier top picks move to categories once when the setup script runs', async () => {
+    const fs = require('node:fs')
+    const path = require('node:path')
+    const ramen = (
+      await request(casey, '/api/visits', {
+        method: 'POST',
+        body: { ...ticket, place: { name: 'Ramen Ya' }, category: 'Ramen', isPublic: true },
+      })
+    ).data
+    const plain = (
+      await request(casey, '/api/visits', { method: 'POST', body: { ...ticket, place: { name: 'No Category' }, isPublic: true } })
+    ).data
+    await pool.query('UPDATE profiles SET top_pick_ids = $2 WHERE user_id = $1', [
+      casey,
+      [ramen.restaurant.id, plain.restaurant.id],
+    ])
+    const setup = rewrite(fs.readFileSync(path.join(__dirname, '../database_setup.sql'), 'utf8'))
+    await pool.query(setup)
+    await pool.query(setup)
+    const picks = (await request(alex, `/api/profiles/${casey}`)).data.topPicks
+    assert.deepEqual(picks.map((p) => [p.category, p.restaurant.name]), [['Ramen', 'Ramen Ya'], ['Favourite #2', 'No Category']])
+    const { rows } = await pool.query('SELECT top_pick_ids FROM profiles WHERE user_id = $1', [casey])
+    assert.deepEqual(rows[0].top_pick_ids, [])
   })
   await t.test('unsharing revokes photo access and removes public restaurant summaries', async () => {
     await request(bea, `/api/visits/${saved.visit.id}`, { method: 'PATCH', body: { isPublic: false } })

@@ -183,3 +183,25 @@ CREATE TABLE IF NOT EXISTS visit_coauthors (
   accepted_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS visit_coauthors_user_idx ON visit_coauthors (user_id, status);
+
+-- Top picks, one per category: the all-time favourite place for "Cafe", "Ramen"… and the dish
+-- to order there. Up to eight, in the order the diner arranged them.
+CREATE TABLE IF NOT EXISTS top_picks (
+  user_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  position SMALLINT NOT NULL CHECK (position BETWEEN 1 AND 8),
+  category TEXT NOT NULL CHECK (length(category) BETWEEN 1 AND 40),
+  restaurant_id UUID NOT NULL,
+  dish TEXT NOT NULL DEFAULT '' CHECK (length(dish) <= 80),
+  PRIMARY KEY (user_id, position),
+  FOREIGN KEY (restaurant_id, user_id) REFERENCES restaurants (id, user_id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS top_picks_category_idx ON top_picks (user_id, lower(category));
+-- The earlier top picks (a plain list of up to four places) move over once, each filed under its
+-- place's category. The old list is then emptied, so running this file again adds nothing.
+INSERT INTO top_picks (user_id, position, category, restaurant_id)
+SELECT p.user_id, pick.position, COALESCE(NULLIF(r.category, ''), 'Favourite #' || pick.position), r.id
+FROM profiles p
+CROSS JOIN LATERAL unnest(p.top_pick_ids) WITH ORDINALITY AS pick(restaurant_id, position)
+JOIN restaurants r ON r.id = pick.restaurant_id AND r.user_id = p.user_id
+ON CONFLICT DO NOTHING;
+UPDATE profiles SET top_pick_ids = '{}' WHERE cardinality(top_pick_ids) > 0;

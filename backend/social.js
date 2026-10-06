@@ -16,7 +16,7 @@ async function ensureProfile(id) {
 }
 
 // $1 is always the signed-in viewer, so every profile says whether they follow each other
-const profileColumns = `p.user_id, p.handle, p.display_name, p.bio, p.avatar_id, p.top_pick_ids,
+const profileColumns = `p.user_id, p.handle, p.display_name, p.bio, p.avatar_id,
   (SELECT count(*)::int FROM follows WHERE following_id = p.user_id) AS follower_count,
   (SELECT count(*)::int FROM follows WHERE follower_id = p.user_id) AS following_count,
   (SELECT count(*)::int FROM visit_logs WHERE user_id = p.user_id AND is_public) AS review_count,
@@ -30,7 +30,6 @@ function toProfile(row) {
     name: row.display_name,
     bio: row.bio,
     avatarId: row.avatar_id,
-    topPickIds: row.top_pick_ids,
     followerCount: row.follower_count,
     followingCount: row.following_count,
     reviewCount: row.review_count,

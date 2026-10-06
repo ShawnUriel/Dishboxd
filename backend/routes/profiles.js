@@ -1,5 +1,5 @@
 const express = require('express')
-const { pool } = require('../db')
+const { pool, transaction } = require('../db')
 const { ValidationError, text, optionalText, isUuid } = require('../validate')
 const {
   ensureProfile,
@@ -29,28 +29,13 @@ router.patch('/me', async (req, res) => {
   if (!/^[a-z0-9_]+$/.test(handle))
     throw new ValidationError('Username can contain letters, numbers and underscores only.')
   const bio = optionalText(req.body?.bio, 'Bio', { max: 280 })
-  const picks = req.body?.topPickIds ?? []
-  if (
-    !Array.isArray(picks) ||
-    picks.length > 4 ||
-    picks.some((id) => !isUuid(id)) ||
-    new Set(picks).size !== picks.length
-  ) {
-    throw new ValidationError('Choose up to four different restaurants for your top picks.')
-  }
-  if (picks.length) {
-    const { rows } = await pool.query(
-      `SELECT DISTINCT restaurant_id FROM visit_logs WHERE user_id = $1 AND is_public AND restaurant_id = ANY($2::uuid[])`,
-      [req.userId, picks],
-    )
-    if (rows.length !== picks.length)
-      throw new ValidationError('Top picks must be restaurants you have shared a review of.')
-  }
   try {
-    await pool.query(
-      `UPDATE profiles SET display_name = $2, handle = $3, bio = $4, top_pick_ids = $5 WHERE user_id = $1`,
-      [req.userId, name, handle, bio, picks],
-    )
+    await pool.query(`UPDATE profiles SET display_name = $2, handle = $3, bio = $4 WHERE user_id = $1`, [
+      req.userId,
+      name,
+      handle,
+      bio,
+    ])
   } catch (error) {
     if (error.code === '23505')
       return res.status(409).json({ error: 'That username is already taken. Try another one.' })
@@ -60,6 +45,83 @@ router.patch('/me', async (req, res) => {
     req.userId,
   ])
   res.json({ profile: toProfile(rows[0]) })
+})
+
+// Top picks: one all-time favourite place per category, with the dish to order there.
+// Only places with a shared review show, so a top pick never reveals a private visit.
+const MAX_TOP_PICKS = 8
+
+async function loadTopPicks(profileId, db = pool) {
+  const { rows } = await db.query(
+    `SELECT tp.category, tp.dish, r.id, r.name, r.address, r.category AS restaurant_category,
+       round(avg(v.rating), 1)::float AS rating, count(v.id)::int AS review_count,
+       (SELECT m.id FROM media m JOIN visit_logs pv ON pv.id = m.visit_id
+         WHERE pv.restaurant_id = r.id AND pv.is_public ORDER BY pv.visit_date DESC, m.created_at DESC LIMIT 1) AS photo_id
+     FROM top_picks tp
+     JOIN restaurants r ON r.id = tp.restaurant_id
+     JOIN visit_logs v ON v.restaurant_id = r.id AND v.is_public
+     WHERE tp.user_id = $1
+     GROUP BY tp.position, tp.category, tp.dish, r.id
+     ORDER BY tp.position`,
+    [profileId],
+  )
+  return rows.map((row) => ({
+    category: row.category,
+    dish: row.dish,
+    restaurant: {
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      category: row.restaurant_category,
+      rating: row.rating,
+      reviewCount: row.review_count,
+      photoId: row.photo_id,
+    },
+  }))
+}
+
+// PUT /api/profiles/me/top-picks { picks: [{ category, restaurantId, dish }] }
+// Replaces all top picks, in this order: one per category (up to eight), each a place with a shared review.
+router.put('/me/top-picks', async (req, res) => {
+  const picks = req.body?.picks
+  if (!Array.isArray(picks) || picks.length > MAX_TOP_PICKS) {
+    throw new ValidationError(`Choose up to ${MAX_TOP_PICKS} top picks.`)
+  }
+  const clean = picks.map((pick, index) => {
+    const label = `Top pick ${index + 1}`
+    if (!isUuid(pick?.restaurantId)) throw new ValidationError(`${label}: choose a restaurant.`)
+    return {
+      category: text(pick.category, `${label} category`, { min: 1, max: 40 }).replace(/\s+/g, ' '),
+      restaurantId: pick.restaurantId,
+      dish: optionalText(pick.dish, `${label} dish`, { max: 80 }),
+    }
+  })
+  if (new Set(clean.map((pick) => pick.category.toLowerCase())).size !== clean.length) {
+    throw new ValidationError('Each category can have one top pick.')
+  }
+  const places = [...new Set(clean.map((pick) => pick.restaurantId))]
+  if (places.length) {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT restaurant_id FROM visit_logs WHERE user_id = $1 AND is_public AND restaurant_id = ANY($2::uuid[])`,
+      [req.userId, places],
+    )
+    if (rows.length !== places.length)
+      throw new ValidationError('Top picks must be restaurants you have shared a review of.')
+  }
+  await ensureProfile(req.userId)
+  const topPicks = await transaction(async (client) => {
+    await client.query('DELETE FROM top_picks WHERE user_id = $1', [req.userId])
+    if (clean.length) {
+      await client.query(
+        `INSERT INTO top_picks (user_id, position, category, restaurant_id, dish)
+         SELECT $1, pick.position, pick.category, pick.restaurant_id, pick.dish
+         FROM unnest($2::text[], $3::uuid[], $4::text[]) WITH ORDINALITY AS pick(category, restaurant_id, dish, position)`,
+        [req.userId, clean.map((p) => p.category), clean.map((p) => p.restaurantId), clean.map((p) => p.dish)],
+      )
+    }
+    return loadTopPicks(req.userId, client)
+  })
+  res.json({ topPicks })
 })
 
 // GET /api/profiles/feed?scope=foryou|following|discover&before=<ISO time>
@@ -181,7 +243,7 @@ router.get('/:id', async (req, res) => {
   if (!rows.length) return res.status(404).json({ error: 'Profile not found.' })
   // Reviews they wrote or co-wrote that you can see (on your own profile, private ones too),
   // reviews they reposted, their restaurants with shared reviews, and the stickers on their card
-  const [reviews, restaurants, reposts, stickers] = await Promise.all([
+  const [reviews, restaurants, reposts, stickers, topPicks] = await Promise.all([
     pool.query(
       `SELECT ${reviewColumns} ${reviewFrom}
       WHERE (v.user_id = $2 OR EXISTS (SELECT 1 FROM visit_coauthors pc
@@ -208,6 +270,7 @@ router.get('/:id', async (req, res) => {
       'SELECT id, sticker_id, x, y, rotation, scale FROM sticker_placements WHERE profile_id = $1 ORDER BY created_at, id',
       [id],
     ),
+    loadTopPicks(id),
   ])
   res.json({
     profile: toProfile(rows[0]),
@@ -223,6 +286,7 @@ router.get('/:id', async (req, res) => {
     })),
     reposts: reposts.rows.map(toReview),
     stickers: stickers.rows.map(toPlacement),
+    topPicks,
   })
 })
 

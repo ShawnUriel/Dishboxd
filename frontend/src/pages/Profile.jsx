@@ -9,6 +9,7 @@ import PersonCard from '../components/molecules/PersonCard.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
 import StickerLayer from '../components/molecules/StickerLayer.jsx'
 import StickerTray from '../components/molecules/StickerTray.jsx'
+import TopPicksEditor from '../components/organisms/TopPicksEditor.jsx'
 import { api } from '../lib/api.js'
 import { authClient } from '../lib/auth.js'
 import { categoryCounts, categoryName } from '../lib/categories.js'
@@ -32,7 +33,7 @@ const SECTIONS = [
 
 function ProfileContent({ id }) {
   const { data: session } = authClient.useSession()
-  const { restaurants: journalRestaurants, shareVisit, updateVisit } = useJournal()
+  const { restaurants: journalRestaurants, visits, shareVisit, updateVisit } = useJournal()
   const own = !id || id === session?.user.id
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -40,6 +41,7 @@ function ProfileContent({ id }) {
   const [draft, setDraft] = useState(null)
   const [busy, setBusy] = useState(false)
   const [section, setSection] = useState('reviews')
+  const [editingPicks, setEditingPicks] = useState(false)
   const [category, setCategory] = useState('')
   const [connections, setConnections] = useState([])
   const [loadingConnections, setLoadingConnections] = useState(false)
@@ -158,12 +160,17 @@ function ProfileContent({ id }) {
     if (own) updateVisit(partial)
   }
 
+  async function saveTopPicks(next) {
+    const result = await api('/api/profiles/me/top-picks', { method: 'PUT', body: { picks: next } })
+    setData((current) => ({ ...current, topPicks: result.topPicks }))
+    setEditingPicks(false)
+  }
+
   function startEditing() {
     setDraft({
       name: data.profile.name,
       handle: data.profile.handle,
       bio: data.profile.bio,
-      topPickIds: data.profile.topPickIds.filter((pick) => data.restaurants.some((r) => r.id === pick)),
     })
     setEditing(true)
   }
@@ -186,7 +193,7 @@ function ProfileContent({ id }) {
       </div>
     )
   const { profile, restaurants } = data
-  const picks = profile.topPickIds.map((pick) => restaurants.find((r) => r.id === pick)).filter(Boolean)
+  const picks = data.topPicks ?? []
   const byId = new Map(journalRestaurants.map((r) => [r.id, r]))
   const categories = categoryCounts(restaurants)
   const shownRestaurants = category ? restaurants.filter((r) => categoryName(r) === category) : restaurants
@@ -290,41 +297,6 @@ function ProfileContent({ id }) {
             />
             <p className="text-right text-xs text-muted">{draft.bio.length}/280</p>
           </div>
-          <fieldset>
-            <legend className="text-xs uppercase tracking-wider text-muted">
-              Top picks · choose up to four
-            </legend>
-            <p className="mt-2 text-xs leading-6 text-muted">
-              Share a review first to feature that restaurant here.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {restaurants.map((r) => {
-                const selected = draft.topPickIds.includes(r.id)
-                return (
-                  <label
-                    key={r.id}
-                    className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${selected ? 'border-brand bg-brand/5 text-brand' : 'border-line'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      disabled={!selected && draft.topPickIds.length >= 4}
-                      onChange={() =>
-                        setDraft({
-                          ...draft,
-                          topPickIds: selected
-                            ? draft.topPickIds.filter((pick) => pick !== r.id)
-                            : [...draft.topPickIds, r.id],
-                        })
-                      }
-                      className="mr-2 accent-brand"
-                    />
-                    {r.name}
-                  </label>
-                )
-              })}
-            </div>
-          </fieldset>
           <div className="flex gap-3">
             <Button type="submit" disabled={busy}>
               {busy ? 'Saving…' : 'Save profile'}
@@ -343,24 +315,66 @@ function ProfileContent({ id }) {
           <span className="flex-1 border-t border-dashed border-line" />
           <span className="text-xs uppercase tracking-wider text-muted">The favourites shelf</span>
         </div>
-        {picks.length ? (
-          <div className="stagger mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {picks.map((r, index) => (
-              <div key={r.id} className="paper-card paper-lift p-3">
-                <Photo id={r.photoId} alt={r.name} fallback="★" className="aspect-[4/3] w-full rounded-md" />
-                <p className="mt-3 text-xs text-brand">PICK 0{index + 1}</p>
-                <h3 className="mt-1 font-serif text-xl font-semibold">{r.name}</h3>
-                <CategoryTag category={r.category} className="mt-2" />
-                <p className="mt-2 text-xs text-muted">
-                  ★ {r.rating} · {r.reviewCount} {r.reviewCount === 1 ? 'review' : 'reviews'}
-                </p>
-              </div>
-            ))}
+        {own && !editingPicks && (
+          <button
+            type="button"
+            onClick={() => setEditingPicks(true)}
+            className="mt-3 text-xs text-accent underline underline-offset-4"
+          >
+            {picks.length ? 'Edit top picks' : '+ Choose your top picks'}
+          </button>
+        )}
+        {editingPicks ? (
+          <TopPicksEditor
+            picks={picks}
+            restaurants={restaurants}
+            visits={visits}
+            onSave={saveTopPicks}
+            onCancel={() => setEditingPicks(false)}
+          />
+        ) : picks.length ? (
+          // One card per category: "Best in Cafe", the place, and the dish to order there
+          <div className="stagger mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {picks.map((pick) => {
+              const card = (
+                <>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Best in</p>
+                  <h3 className="break-words font-serif text-2xl font-semibold leading-tight text-brand">{pick.category}</h3>
+                  <Photo
+                    id={pick.restaurant.photoId}
+                    alt={pick.restaurant.name}
+                    fallback="★"
+                    className="mt-3 aspect-[4/3] w-full rounded-md"
+                  />
+                  <p className="mt-3 break-words font-serif text-xl font-semibold leading-snug">{pick.restaurant.name}</p>
+                  {pick.dish && (
+                    <p className="mt-2 flex items-baseline gap-2 font-mono text-sm">
+                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted">Dish</span>
+                      <span className="leader" aria-hidden="true" />
+                      <span className="min-w-0 break-words text-right">{pick.dish}</span>
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted">
+                    ★ {pick.restaurant.rating} · {pick.restaurant.reviewCount}{' '}
+                    {pick.restaurant.reviewCount === 1 ? 'review' : 'reviews'}
+                  </p>
+                </>
+              )
+              return own ? (
+                <Link key={pick.category} to={`/restaurant/${pick.restaurant.id}`} className="paper-card paper-lift block p-4">
+                  {card}
+                </Link>
+              ) : (
+                <article key={pick.category} className="paper-card paper-lift p-4">
+                  {card}
+                </article>
+              )
+            })}
           </div>
         ) : (
           <p className="paper-card mt-5 p-6 text-sm leading-7 text-muted">
             {own
-              ? 'Your best bites belong here. Share a review, then choose your favourites in Edit profile.'
+              ? 'Your all-time favourites, one per category: the best cafe, the best ramen, and what to order there.'
               : 'No top picks filed yet.'}
           </p>
         )}

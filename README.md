@@ -105,7 +105,7 @@ cd backend
 npm run db:setup
 ```
 
-It runs `backend/database_setup.sql` in a transaction and is safe to run again. **Run this before deploying an upgrade**, because the new code reads the new columns and tables. Upgrades are additive and keep existing data: the profile/photo upgrade added three tables and a sharing flag (existing visits stay private); the item-review upgrade adds a score and note to each dish (old dishes stay unscored), a category to each restaurant (empty until sorted), allows any colour for boxes, and adds five tables for stickers, likes, reposts and co-authors. The thirteen tables:
+It runs `backend/database_setup.sql` in a transaction and is safe to run again. **Run this before deploying an upgrade**, because the new code reads the new columns and tables. Upgrades are additive and keep existing data: the profile/photo upgrade added three tables and a sharing flag (existing visits stay private); the item-review upgrade adds a score and note to each dish (old dishes stay unscored), a category to each restaurant (empty until sorted), allows any colour for boxes, and adds five tables for stickers, likes, reposts and co-authors. The top-picks upgrade adds a `top_picks` table and moves each earlier pick into it, filed under its place's category (uncategorised ones become "Favourite #1", "Favourite #2"…). The fourteen tables:
 
 | Table | Holds |
 | --- | --- |
@@ -114,7 +114,8 @@ It runs `backend/database_setup.sql` in a transaction and is safe to run again. 
 | `dishes` | The items on a ticket, in order, each with its price in pesos, its own score (0–12, where 10 is perfect and past 10 is "on fire") and a note. |
 | `boxes` | A user's card catalog boxes: title, description, colour (one of five names or any `#rrggbb`), public or private. |
 | `box_restaurants` | Which restaurants are filed in which box. |
-| `profiles` | Unique username, display name, bio, avatar reference and up to four top restaurant picks. |
+| `profiles` | Unique username, display name, bio and avatar reference. (Its old `top_pick_ids` list is emptied once moved to `top_picks`.) |
+| `top_picks` | Up to eight top picks per diner, one per category: the category, the restaurant (one of their own) and its must-order dish, in the diner's order. |
 | `follows` | Follower/following relationships; duplicate follows and self-follows are prevented. |
 | `media` | Compressed JPEG bytes and ownership, attached to a profile or review. |
 | `stickers` | A user's sticker book: small transparent PNGs made in the browser, with the style used (just the image, pixelated, vector or translucent). |
@@ -221,7 +222,7 @@ Stick them on your profile card, your review cards, your boxes and each item on 
 
 ### Profiles, friends and following
 
-Use the **PROFILE** tab to upload an avatar and edit your display name, unique username and bio (up to 280 characters). Choose up to four **Top picks** from restaurants with a shared review. Your profile includes recent reviews, reviewed restaurants, and follower/following counts that open their member lists. Your own recent-review tab also shows your private entries, labelled as private; other diners see shared entries only.
+Use the **PROFILE** tab to upload an avatar and edit your display name, unique username and bio (up to 280 characters). **Top picks** are your all-time favourites, one per category, each with its must-order dish: for example **Cafe** → Caution → Spanish Latte. On your profile, **+ Choose your top picks** (or **Edit top picks**) opens an editor. Choose a restaurant and its category and best-scored dish fill in. **Suggest from my reviews** proposes your best-rated place for every category you have reviewed. Rows can be reordered or removed, up to eight. Only places you have shared a review of can be picked, so a top pick never reveals a private visit. Everyone who opens your profile sees them as **Best in …** cards. Your profile includes recent reviews, reviewed restaurants, and follower/following counts that open their member lists. Your own recent-review tab also shows your private entries, labelled as private; other diners see shared entries only.
 
 The **FRIENDS** tab (`/friends`) gathers your people. **Friends** follow each other; **Follow back** lists diners who follow you; **Following** lists those who have not followed back yet; **Find diners** searches the directory by display name or username. Profiles and person cards show a **Friends** or **Follows you** badge. Home opens on **For you**, a feed like a "for you" page: shared reviews written or co-written by diners you follow, the reviews they reposted, and your own reposts. Each review shows once, at its latest post or repost, credited to everyone who reposted it ("You and Bea Santos reposted"), newest first, 20 at a time with **Load more**. **Yours** is your own journal; **Discover** shows shared reviews from other diners. Review cards in your own profile can be shared or made private later. Making a review private also removes its photos from other diners' access and updates the public restaurant summary.
 
@@ -277,9 +278,10 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 | `GET` | `/api/visits` | | The user's visits, newest first, each with its items (score, note, sticker), photos, stickers, likes, reposts and co-author | `200` |
 | `POST` | `/api/visits` | `{ restaurantId }` **or** `{ place: { placeId, name, address } }`, plus `{ date, rating, notes, dishes, category, isPublic, photoIds, coauthorId }`; each dish `{ name, price, score, description, sticker }` | Atomically saves a ticket, its items (score 0–12, note up to 500 characters, one owned sticker each), up to three owned photo references, the place's category, and an optional co-author invite (friends only). `isPublic` defaults to false. Any problem saves nothing. | `201` `{ restaurant, visit }` |
 | `PATCH` | `/api/visits/:id` | `{ isPublic }` | Shares or makes private one of the user's reviews | `200` |
-| `GET` / `PATCH` | `/api/profiles/me` | For PATCH: `{ name, handle, bio, topPickIds }` | Loads or updates the user's profile | `200` |
+| `GET` / `PATCH` | `/api/profiles/me` | For PATCH: `{ name, handle, bio }` | Loads or updates the user's profile | `200` |
+| `PUT` | `/api/profiles/me/top-picks` | `{ picks: [{ category, restaurantId, dish }] }` | Replaces the user's top picks, in order: up to eight, one per category (case-insensitive), each a restaurant with a shared review | `200` `{ topPicks }` |
 | `GET` | `/api/profiles?q=...` | | Searches diner names and usernames | `200` |
-| `GET` | `/api/profiles/:id` | | Profile, reviews and accepted co-reviews you can see, reposts, reviewed restaurants and the stickers on the profile | `200` |
+| `GET` | `/api/profiles/:id` | | Profile, reviews and accepted co-reviews you can see, reposts, reviewed restaurants, top picks and the stickers on the profile | `200` |
 | `GET` | `/api/profiles/friends` | | `{ friends, followBack, following }`: friends follow each other | `200` |
 | `GET` | `/api/profiles/:id/connections?type=followers` | | Follower list; use `type=following` for following | `200` |
 | `PUT` / `DELETE` | `/api/profiles/:id/follow` | | Follows/unfollows a diner idempotently | `200` |
