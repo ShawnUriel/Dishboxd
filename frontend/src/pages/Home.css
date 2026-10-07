@@ -1,5 +1,39 @@
 .home-welcome {
-  background: linear-gradient(105deg, var(--color-card) 50%, #f1e7d363);
+  background: radial-gradient(ellipse at 85% 90%, #dbb98121, transparent 55%), linear-gradient(105deg, var(--color-card) 50%, #f1e7d363);
+  border-top: 3px solid var(--color-brand);
+}
+
+.home-welcome-checks {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 38%;
+  border-radius: 0 0 10px 0;
+  background: repeating-linear-gradient(0deg, transparent 0 17px, #87977712 17px 34px), repeating-linear-gradient(90deg, transparent 0 17px, #87977712 17px 34px);
+  mask-image: linear-gradient(90deg, transparent, black);
+  pointer-events: none;
+}
+.home-journal-signoff { display: flex; align-items: center; gap: 14px; margin-top: 28px; font-size: 9px; text-transform: uppercase; letter-spacing: .13em; color: var(--color-muted); }
+.home-journal-signoff span:nth-child(2) { font-size: 22px; color: var(--color-brand); }
+.home-stat { position: relative; border-bottom: 3px solid var(--stat-color); }
+.home-stat-rose { --stat-color: #cba298; }
+.home-stat-sage { --stat-color: #9faa91; }
+.home-stat-gold { --stat-color: #d2b572; }
+.home-stat-icon { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--stat-color); border-radius: 50%; background: color-mix(in srgb, var(--stat-color) 16%, transparent); color: var(--color-ink); }
+.home-specials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--color-card-edge); border-radius: 6px; background: var(--color-card); }
+.home-specials-label { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; padding: 12px 20px; border-bottom: 1px dashed var(--color-line); }
+.home-special-link { display: flex; align-items: center; gap: 12px; padding: 20px 16px; }
+.home-special-link + .home-special-link { border-left: 1px dashed var(--color-line); }
+.home-special-link:hover { background: var(--color-badge); }
+.home-special-link:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -3px; }
+.home-special-number { align-self: flex-start; font-family: var(--font-serif); font-style: italic; font-size: 22px; color: var(--color-brand); }
+.home-coffee-stamp { float: right; width: 56px; margin: 8px -2px 2px 8px; color: var(--color-accent); transform: rotate(8deg); }
+@media (max-width: 639px) {
+  .home-specials { grid-template-columns: 1fr; }
+  .home-special-link { padding: 14px 18px; }
+  .home-special-link + .home-special-link { border-left: 0; border-top: 1px dashed var(--color-line); }
+  .home-welcome-checks { width: 65%; }
 }
 
 .home-menu {

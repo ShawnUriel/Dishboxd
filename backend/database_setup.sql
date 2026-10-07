@@ -105,6 +105,22 @@ CREATE INDEX IF NOT EXISTS media_user_idx ON media (user_id);
 CREATE INDEX IF NOT EXISTS media_visit_idx ON media (visit_id);
 CREATE INDEX IF NOT EXISTS visits_public_idx ON visit_logs (user_id, created_at DESC) WHERE is_public;
 
+-- Activity inbox. Events are historical: undoing a follow/repost does not erase them.
+-- Existing relationships are not backfilled as new notifications.
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGSERIAL PRIMARY KEY,
+  recipient_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('follow', 'repost')),
+  visit_id UUID REFERENCES visit_logs(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_at TIMESTAMPTZ,
+  CHECK (recipient_id <> actor_id),
+  CHECK ((kind = 'follow' AND visit_id IS NULL) OR (kind = 'repost' AND visit_id IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS notifications_recipient_idx ON notifications (recipient_id, id DESC);
+CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications (recipient_id, id) WHERE read_at IS NULL;
+
 -- Additive migration for item reviews, categories, stickers and review reactions.
 -- Old dishes keep a NULL score, old restaurants an empty category, and old boxes their colour.
 
@@ -205,3 +221,50 @@ CROSS JOIN LATERAL unnest(p.top_pick_ids) WITH ORDINALITY AS pick(restaurant_id,
 JOIN restaurants r ON r.id = pick.restaurant_id AND r.user_id = p.user_id
 ON CONFLICT DO NOTHING;
 UPDATE profiles SET top_pick_ids = '{}' WHERE cardinality(top_pick_ids) > 0;
+
+-- Private places to try, independent of the user's visited restaurant catalog.
+CREATE TABLE IF NOT EXISTS bookmarks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  place_key TEXT NOT NULL,
+  google_place_id TEXT,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 100),
+  address TEXT NOT NULL DEFAULT '' CHECK (length(address) <= 120),
+  category TEXT NOT NULL DEFAULT '' CHECK (length(category) <= 40),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, place_key)
+);
+CREATE INDEX IF NOT EXISTS bookmarks_user_idx ON bookmarks (user_id, created_at DESC);
+
+ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS review_comments (
+  id BIGSERIAL PRIMARY KEY,
+  visit_id UUID NOT NULL REFERENCES visit_logs(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+  parent_id BIGINT,
+  body TEXT NOT NULL CHECK (length(body) <= 1000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (id, visit_id),
+  FOREIGN KEY (parent_id, visit_id) REFERENCES review_comments(id, visit_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS review_comments_visit_idx ON review_comments (visit_id, id);
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  user_id UUID PRIMARY KEY REFERENCES profiles(user_id) ON DELETE CASCADE,
+  follows BOOLEAN NOT NULL DEFAULT true,
+  reposts BOOLEAN NOT NULL DEFAULT true,
+  comments BOOLEAN NOT NULL DEFAULT true,
+  replies BOOLEAN NOT NULL DEFAULT true,
+  digest_frequency TEXT NOT NULL DEFAULT 'off' CHECK (digest_frequency IN ('off', 'daily', 'weekly')),
+  digest_since TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_kind_check CHECK (kind IN ('follow', 'repost', 'comment', 'reply'));
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_check1;
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_target_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_target_check
+  CHECK ((kind = 'follow' AND visit_id IS NULL) OR (kind <> 'follow' AND visit_id IS NOT NULL));
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS comment_id BIGINT REFERENCES review_comments(id) ON DELETE CASCADE;

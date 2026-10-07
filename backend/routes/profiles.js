@@ -212,7 +212,12 @@ router.put('/:id/follow', async (req, res) => {
   await ensureProfile(req.userId)
   const target = await pool.query('SELECT user_id FROM profiles WHERE user_id = $1', [id])
   if (!target.rows.length) return res.status(404).json({ error: 'Profile not found.' })
-  await pool.query('INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [
+  await pool.query(`WITH added AS (
+    INSERT INTO follows (follower_id, following_id) VALUES ($1, $2)
+    ON CONFLICT DO NOTHING RETURNING follower_id, following_id
+  ) INSERT INTO notifications (recipient_id, actor_id, kind)
+    SELECT following_id, follower_id, 'follow' FROM added
+    WHERE COALESCE((SELECT follows FROM notification_preferences WHERE user_id = following_id), true)`, [
     req.userId,
     id,
   ])

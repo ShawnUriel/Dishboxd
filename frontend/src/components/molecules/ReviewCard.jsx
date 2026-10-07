@@ -8,6 +8,7 @@ import ScoreBadge from '../atoms/ScoreBadge.jsx'
 import StickerImage from '../atoms/StickerImage.jsx'
 import CoauthorControls from './CoauthorControls.jsx'
 import ReviewActions from './ReviewActions.jsx'
+import BookmarkButton from './BookmarkButton.jsx'
 import StickerLayer from './StickerLayer.jsx'
 import StickerTray from './StickerTray.jsx'
 import { formatDate, formatMoney } from '../../lib/format.js'
@@ -120,6 +121,7 @@ export default function ReviewCard({
           <div className="min-w-0">
             <p className="mb-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wider text-muted">
               {formatDate(review.date)}
+              {review.editedAt && <span className="text-[9px] normal-case">Edited</span>}
               <CategoryTag category={restaurant?.category} />
               {level > 0 && <span className="fire-stamp">On fire</span>}
             </p>
@@ -197,6 +199,12 @@ export default function ReviewCard({
 
         {!preview && (
           <div className="mt-4 space-y-3 border-t border-dashed border-line pt-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link to={`/review/${review.id}#comments`} className="text-xs text-accent underline">Comments ({review.commentCount ?? 0})</Link>
+              {isAuthor && <Link to={`/review/${review.id}/edit`} className="text-xs text-accent underline">Edit review</Link>}
+              {isAuthor && <Link to={`/review/${review.id}`} className="text-xs text-muted underline">Manage review</Link>}
+              {restaurant && <BookmarkButton place={restaurant} restaurantId={restaurant.id} />}
+            </div>
             {review.isPublic && (
               <ReviewActions review={review} canRepost={!isAuthor && review.coauthor?.id !== currentUserId} onChange={onChange} />
             )}

@@ -6,6 +6,8 @@ import PersonCard from '../components/molecules/PersonCard.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
 import HomePaperNote from '../components/molecules/HomePaperNote.jsx'
 import HomeTrays from '../components/organisms/HomeTrays.jsx'
+import NotificationBell from '../components/organisms/NotificationBell.jsx'
+import { FolderIcon, PencilIcon, SearchIcon, UsersIcon } from '../components/atoms/Icon.jsx'
 import { api } from '../lib/api.js'
 import { authCall, authClient } from '../lib/auth.js'
 import { categoryCounts } from '../lib/categories.js'
@@ -112,7 +114,7 @@ export default function Home() {
   }
   return (
     <div className="page-enter">
-      <header className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-dashed border-line pb-5">
+      <header className="relative z-30 mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-dashed border-line pb-5">
         <div>
           <h1 className="font-serif text-3xl font-bold tracking-tight">
             The Log<span className="ml-2 text-brand">.</span>
@@ -121,7 +123,8 @@ export default function Home() {
             Dishboxd / {formatMonth()}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="ml-auto flex items-center gap-3 sm:gap-4">
+          <NotificationBell />
           <Link to="/profile" className="flex items-center gap-2 text-xs text-muted">
             <Photo
               id={profile?.avatarId}
@@ -140,6 +143,7 @@ export default function Home() {
         className="paper-card home-welcome relative grid gap-9 p-6 sm:p-8 lg:grid-cols-[1fr_16rem] lg:gap-8"
         aria-labelledby="welcome-title"
       >
+        <span className="home-welcome-checks" aria-hidden="true" />
         <div className="relative z-10">
           <p className="mb-4 text-[10px] uppercase tracking-[0.22em] text-brand">
             Your personal table of memories
@@ -167,21 +171,46 @@ export default function Home() {
               Find your food people ↗
             </Link>
           </div>
+          <div className="home-journal-signoff" aria-hidden="true">
+            <span>Made to savour</span><span>✳</span><span>Filed with love</span>
+          </div>
         </div>
         <HomePaperNote />
       </section>
       <div className="stagger my-6 grid grid-cols-3 gap-3 sm:gap-5">
         {[
-          [visits.length, 'Meals remembered'],
-          [restaurants.length, 'Places on file'],
-          [dishCount, 'Dishes tried'],
-        ].map(([value, label]) => (
-          <div key={label} className="paper-card px-3 py-4 sm:px-5">
-            <p className="font-serif text-3xl font-semibold text-brand">{String(value).padStart(2, '0')}</p>
+          [visits.length, 'Meals remembered', 'A story in every ticket', PencilIcon, 'rose'],
+          [restaurants.length, 'Places on file', 'Your own little food map', FolderIcon, 'sage'],
+          [dishCount, 'Dishes tried', 'Good taste, well documented', SearchIcon, 'gold'],
+        ].map(([value, label, caption, Icon, tone]) => (
+          <div key={label} className={`paper-card home-stat home-stat-${tone} px-3 py-4 sm:px-5`}>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <span className="home-stat-icon"><Icon /></span>
+              <span className="hidden text-[9px] uppercase tracking-widest text-muted sm:block">In your journal</span>
+            </div>
+            <p className="font-serif text-3xl font-semibold text-brand sm:text-4xl">{String(value).padStart(2, '0')}</p>
             <p className="mt-2 text-[10px] uppercase tracking-wide text-muted sm:text-xs">{label}</p>
+            <p className="mt-3 hidden border-t border-dashed border-line pt-3 font-serif text-sm italic text-muted sm:block">{caption}</p>
           </div>
         ))}
       </div>
+      <section className="home-specials mb-8" aria-labelledby="specials-title">
+        <div className="home-specials-label">
+          <span className="text-[9px] uppercase tracking-[0.18em] text-muted">Something to savour</span>
+          <h2 id="specials-title" className="mt-1 font-serif text-xl italic text-brand">Today’s specials</h2>
+        </div>
+        {[
+          ['/log/new', '01', 'Leave a little review', 'Turn a good meal into a keepsake.', PencilIcon],
+          ['/search', '02', 'Find your next favourite', 'A familiar spot or a fresh discovery.', SearchIcon],
+          ['/friends', '03', 'Pull up another chair', 'Good food is better with company.', UsersIcon],
+        ].map(([to, number, title, copy, Icon]) => (
+          <Link key={to} to={to} className="home-special-link">
+            <span className="home-special-number">{number}</span>
+            <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{title}</span><span className="mt-1 block text-[10px] leading-5 text-muted">{copy}</span></span>
+            <span className="text-accent" aria-hidden="true"><Icon /></span>
+          </Link>
+        ))}
+      </section>
       <HomeTrays boxes={boxes} visits={visits} restaurantsById={byId} />
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <section aria-labelledby="journal-title" className="mx-auto w-full min-w-0 max-w-[40rem]">
@@ -321,6 +350,11 @@ export default function Home() {
         </section>
       <aside className="min-w-0 space-y-5">
           <section className="paper-card home-margin-note p-5">
+            <div className="home-coffee-stamp" aria-hidden="true">
+              <svg viewBox="0 0 60 60" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M14 25h28v11a12 12 0 0 1-12 12h-4a12 12 0 0 1-12-12V25ZM42 28h4a6 6 0 0 1 0 12h-5M10 51h38M23 19c-7-7 6-7 0-14M33 19c-7-7 6-7 0-14" />
+              </svg>
+            </div>
             <p className="text-[10px] uppercase tracking-[0.18em] text-brand">A little nudge</p>
             <h2 className="mt-3 font-serif text-2xl font-semibold">Your next good bite</h2>
             {favourite ? (
@@ -352,7 +386,7 @@ export default function Home() {
                 </Link>
               </>
             )}
-          </section>
+        </section>
           {restaurants.length > 0 && (
             <section className="paper-card p-5" aria-labelledby="sorted-title">
               <p className="text-[10px] uppercase tracking-[0.18em] text-accent">Your places, sorted</p>

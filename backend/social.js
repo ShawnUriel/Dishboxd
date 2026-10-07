@@ -55,7 +55,9 @@ const canSeeReview = (alias = 'v') => `(${alias}.is_public OR ${alias}.user_id =
 
 // Everything a review card shows. Use with FROM visit_logs v JOIN restaurants r, and the viewer as $1.
 // A pending co-author is shown only to the author and the person invited.
-const reviewColumns = `v.id, v.user_id, v.restaurant_id, v.visit_date, v.rating, v.notes, v.is_public, v.created_at,
+const reviewColumns = `v.id, v.user_id, v.restaurant_id, v.visit_date, v.rating, v.notes, v.is_public, v.created_at, v.revision, v.edited_at,
+  r.google_place_id,
+  (SELECT count(*)::int FROM review_comments rc WHERE rc.visit_id = v.id AND rc.deleted_at IS NULL) AS comment_count,
   r.name AS restaurant_name, r.address AS restaurant_address, r.category AS restaurant_category,
   COALESCE((SELECT json_agg(json_build_object('id', d.id, 'name', d.name, 'price', d.price, 'score', d.score,
       'description', d.description,
@@ -80,6 +82,9 @@ const reviewFrom = 'FROM visit_logs v JOIN restaurants r ON r.id = v.restaurant_
 function toReview(row) {
   return {
     id: row.id,
+    revision: row.revision,
+    editedAt: row.edited_at,
+    commentCount: row.comment_count,
     restaurantId: row.restaurant_id,
     date: row.visit_date,
     rating: row.rating,
@@ -96,6 +101,7 @@ function toReview(row) {
     coauthor: row.coauthor,
     restaurant: {
       id: row.restaurant_id,
+      placeId: row.google_place_id,
       name: row.restaurant_name,
       address: row.restaurant_address,
       category: row.restaurant_category,

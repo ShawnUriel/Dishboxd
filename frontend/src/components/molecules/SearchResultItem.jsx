@@ -3,6 +3,7 @@ import CategoryTag from '../atoms/CategoryTag.jsx'
 import CodeBadge from '../atoms/CodeBadge.jsx'
 import PlacePhoto from './PlacePhoto.jsx'
 import Tag from '../atoms/Tag.jsx'
+import BookmarkButton from './BookmarkButton.jsx'
 import { restaurantCode } from '../../lib/format.js'
 
 // One catalog card in the search results. `restaurant` is set when it is already ON FILE;
@@ -32,6 +33,7 @@ export default function SearchResultItem({ place, restaurant, photoId, onSelect,
           </div>
         </div>
       </div>
+      <div className="px-4 pb-4 sm:px-5"><BookmarkButton place={place} restaurantId={restaurant?.id} /></div>
       {restaurant ? <Tag>On file</Tag> : exact && <Tag>Exact match</Tag>}
     </li>
   )

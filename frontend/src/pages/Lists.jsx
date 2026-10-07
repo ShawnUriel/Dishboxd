@@ -66,6 +66,9 @@ export default function Lists() {
           <span aria-hidden="true" className="mr-2">+</span> New box
         </Button>
       </header>
+      <Link to="/bookmarks" className="paper-card mt-6 flex items-center justify-between gap-3 p-5 text-accent">
+        <span><span className="block font-serif text-xl">Want to try</span><span className="mt-1 block text-xs text-muted">Your private list of future food adventures.</span></span><span aria-hidden="true">→</span>
+      </Link>
 
       <div className="my-7 grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-sidebar/35 py-5">
         {[

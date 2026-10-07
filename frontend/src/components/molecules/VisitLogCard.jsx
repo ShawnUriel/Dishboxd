@@ -74,7 +74,7 @@ export default function VisitLogCard({ visit, restaurant }) {
           to={`/review/${visit.id}`}
           className="mt-3 inline-block text-xs text-accent underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-brand"
         >
-          Open review &amp; {visit.stickers?.length ? 'edit' : 'add'} stickers
+          Open review, comments &amp; edit
         </Link>
       </div>
       <StickerLayer placements={visit.stickers ?? []} size={58} label="Stickers on this review" />

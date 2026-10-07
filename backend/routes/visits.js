@@ -125,6 +125,7 @@ async function findOrFileRestaurant(client, userId, ticket) {
 // and co-author invite in a single transaction. Any problem saves nothing.
 router.post('/', async (req, res) => {
   const ticket = readTicket(req.body)
+  await ensureProfile(req.userId)
   if (ticket.coauthorId) {
     if (ticket.coauthorId === req.userId) throw new ValidationError('You are already an author of this review.')
     await ensureProfile(req.userId)
@@ -236,11 +237,65 @@ router.post('/', async (req, res) => {
   })
 })
 
+// Full review edit. Keep existing dish IDs (and their references), photos, review
+// stickers and co-authors. A stale editor cannot overwrite a newer revision.
+router.put('/:id', async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Review not found.' })
+  const revision = integer(req.body?.revision, 'Revision', { min: 1, max: 2147483647 })
+  const result = await transaction(async (client) => {
+    const owned = await client.query('SELECT * FROM visit_logs WHERE id = $1 AND user_id = $2 FOR UPDATE', [req.params.id, req.userId])
+    if (!owned.rowCount) return null
+    if (owned.rows[0].revision !== revision) return { conflict: true }
+    const ticket = readTicket({ ...req.body, restaurantId: owned.rows[0].restaurant_id, photoIds: [], stickers: [], coauthorId: null, boxId: null })
+    const previous = await client.query('SELECT id FROM dishes WHERE visit_log_id = $1', [req.params.id])
+    const ownedIds = new Set(previous.rows.map((row) => row.id))
+    const retained = req.body.dishes.flatMap((dish) => dish.id == null ? [] : [dish.id])
+    if (new Set(retained).size !== retained.length || retained.some((id) => !ownedIds.has(id))) {
+      throw new ValidationError('One of these items does not belong to this review.')
+    }
+    await client.query('DELETE FROM dishes WHERE visit_log_id = $1 AND NOT (id = ANY($2::uuid[]))', [req.params.id, retained])
+    await client.query('UPDATE dishes SET position = position + 100 WHERE visit_log_id = $1', [req.params.id])
+    for (const [index, dish] of ticket.dishes.entries()) {
+      const id = req.body.dishes[index].id
+      let dishId = id
+      if (id) {
+        await client.query('UPDATE dishes SET position = $2, name = $3, price = $4, score = $5, description = $6 WHERE id = $1', [id, index + 1, dish.name, dish.price, dish.score, dish.description])
+      } else {
+        const added = await client.query('INSERT INTO dishes (visit_log_id, position, name, price, score, description) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id', [req.params.id, index + 1, dish.name, dish.price, dish.score, dish.description])
+        dishId = added.rows[0].id
+      }
+      // Omitted sticker means preserve; explicit null removes it.
+      if (Object.hasOwn(req.body.dishes[index], 'sticker')) {
+        await client.query('DELETE FROM sticker_placements WHERE dish_id = $1', [dishId])
+        if (dish.sticker) {
+          const s = dish.sticker
+          const placed = await client.query(`INSERT INTO sticker_placements (user_id, sticker_id, dish_id, x, y, rotation, scale)
+            SELECT $1, id, $3, $4, $5, $6, $7 FROM stickers WHERE id = $2 AND user_id = $1`, [req.userId, s.stickerId, dishId, s.x, s.y, s.rotation, s.scale])
+          if (!placed.rowCount) throw new ValidationError('One of your stickers is unavailable.')
+        }
+      }
+    }
+    await client.query(`UPDATE visit_logs SET visit_date=$3, rating=$4, notes=$5, is_public=$6,
+      revision=revision+1, edited_at=now() WHERE id=$1 AND user_id=$2`, [req.params.id, req.userId, ticket.date, ticket.rating, ticket.notes, req.body.isPublic ?? owned.rows[0].is_public])
+    return { review: await loadReview(req.userId, req.params.id, client) }
+  })
+  if (!result) return res.status(404).json({ error: 'Review not found.' })
+  if (result.conflict) return res.status(409).json({ error: 'This review changed in another tab. Reload it before editing again.' })
+  res.json(result)
+})
+
+router.delete('/:id', async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Review not found.' })
+  const { rowCount } = await pool.query('DELETE FROM visit_logs WHERE id = $1 AND user_id = $2', [req.params.id, req.userId])
+  if (!rowCount) return res.status(404).json({ error: 'Review not found.' })
+  res.json({ ok: true })
+})
+
 router.patch('/:id', async (req, res) => {
   if (!isUuid(req.params.id) || typeof req.body?.isPublic !== 'boolean')
     throw new ValidationError('Send a valid review id and sharing setting.')
   const { rowCount } = await pool.query(
-    'UPDATE visit_logs SET is_public = $3 WHERE id = $1 AND user_id = $2',
+    'UPDATE visit_logs SET is_public = $3, revision = revision + 1 WHERE id = $1 AND user_id = $2',
     [req.params.id, req.userId, req.body.isPublic],
   )
   if (!rowCount) return res.status(404).json({ error: 'Review not found.' })

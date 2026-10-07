@@ -9,6 +9,7 @@ import { PERFECT } from '../lib/scores.js'
 import { averageRating, newestFirst, topDishes } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
 import NotFound from './NotFound.jsx'
+import BookmarkButton from '../components/molecules/BookmarkButton.jsx'
 
 // One restaurant's record: photo, average rating, top dishes and every visit.
 export default function RestaurantProfile() {
@@ -49,6 +50,7 @@ export default function RestaurantProfile() {
           onSaveCategory={(category) => setRestaurantCategory(restaurant.id, category)}
         />
 
+        <BookmarkButton place={restaurant} restaurantId={restaurant.id} className="mt-5" />
         <hr className="my-6 border-dashed border-line" />
         <SectionLabel>Top dishes</SectionLabel>
         <ul className="mt-3 space-y-1.5 font-mono text-sm">

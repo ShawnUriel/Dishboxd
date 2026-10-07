@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Button from '../atoms/Button.jsx'
 import CodeBadge from '../atoms/CodeBadge.jsx'
+import BookmarkButton from './BookmarkButton.jsx'
 
 // NEW card for a restaurant that is not on Google Maps: files the typed name by hand,
 // with an optional street address, then moves to the entry ticket.
@@ -39,6 +40,7 @@ export default function ManualPlaceForm({ name, onAdd }) {
           <Button type="submit" size="sm">
             Start ticket
           </Button>
+          <BookmarkButton place={{ name: name.trim(), address: address.trim() }} />
         </div>
       </form>
     </li>

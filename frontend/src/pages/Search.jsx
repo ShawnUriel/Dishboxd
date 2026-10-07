@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import SearchAutocomplete from '../components/organisms/SearchAutocomplete.jsx'
 
 // "Card Catalog": find a restaurant, then either open its record or start a ticket.
@@ -19,6 +19,7 @@ export default function Search() {
   return (
     <>
       <h1 className="font-serif text-3xl font-bold tracking-tight">Card Catalog</h1>
+      <Link to="/bookmarks" className="mt-3 inline-block text-xs text-accent underline">Your want-to-try list →</Link>
       <div className="mt-5">
         <SearchAutocomplete onSelect={handleSelect} initialCategory={params.get('category') ?? ''} />
       </div>

@@ -4,6 +4,9 @@ import { GuestOnly, RequireAuth } from './components/organisms/AuthGate.jsx'
 import Navbar from './components/organisms/Navbar.jsx'
 import PageTransition from './components/organisms/PageTransition.jsx'
 import Home from './pages/Home.jsx'
+import Bookmarks from './pages/Bookmarks.jsx'
+import EditReview from './pages/EditReview.jsx'
+import NotificationSettings from './pages/NotificationSettings.jsx'
 import ListDetail from './pages/ListDetail.jsx'
 import Lists from './pages/Lists.jsx'
 import Login from './pages/Login.jsx'
@@ -67,6 +70,8 @@ function App() {
           <Route element={<JournalLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/search" element={<Search />} />
+            <Route path="/bookmarks" element={<Bookmarks />} />
+            <Route path="/settings/notifications" element={<NotificationSettings />} />
             <Route path="/log/new" element={<VisitForm />} />
             <Route path="/restaurant/:id" element={<RestaurantProfile />} />
             <Route path="/lists" element={<Lists />} />
@@ -76,6 +81,7 @@ function App() {
             <Route path="/friends" element={<Friends />} />
             <Route path="/people" element={<Navigate to="/friends?tab=find" replace />} />
             <Route path="/review/:id" element={<ReviewPage />} />
+            <Route path="/review/:id/edit" element={<EditReview />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>

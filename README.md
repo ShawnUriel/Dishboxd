@@ -98,6 +98,8 @@ cp backend/.env.example backend/.env
 
 ### Database setup
 
+The notification upgrade adds a `notifications` table and indexes. Run the setup below before starting or deploying this version. It preserves existing data; previous follows and reposts are not backfilled as new alerts.
+
 Neon Auth's own tables (`neon_auth.user`, `neon_auth.session` and so on) are created when you enable Neon Auth. Create or upgrade Dishboxd's tables from the backend folder:
 
 ```bash
@@ -341,6 +343,14 @@ Backend integration tests use real Postgres in a temporary schema and fixture au
 For an isolated browser preview, run `node test/browser-preview.cjs` from `backend` and open `http://127.0.0.1:5173`. It uses real API routes and a temporary database schema with local fixture accounts; production authentication remains unchanged. Type `stop` in its terminal to clean up. Browser checks covered profile editing, avatar/review uploads, top picks, following, reload persistence and mobile layouts; for the item-review upgrade they also covered the ticket on its plate with a Google photo, item containers with scores and fire, making and placing stickers, box editing, the Friends page, invites, likes and reposts, at desktop and phone widths.
 
 ## 5. Project structure
+
+### Notifications and Home
+
+Home's top-right bell, beside the profile, shows new followers and review reposts. Alerts are saved to Postgres and refresh every 30 seconds while Home is visible, on window focus, and when the inbox opens. Opening an alert marks it read and takes you to the follower or review; **Mark all as read** acknowledges the fetched activity, leaving newer arrivals unread. Older notifications can be loaded inside the panel. Unfollowing or undoing a repost keeps the historical alert; retrying the same follow/repost request does not duplicate it. These are in-app notifications, not email or browser push.
+
+The inbox API is authenticated and scoped to its recipient: `GET /api/notifications?before=<id>`, `PATCH /api/notifications/:id/read`, and `PATCH /api/notifications/read` with `{ "through": "<latest-fetched-id>" }`. Notification IDs are strings. Tests in `backend/test/notifications.test.js` cover deduplication, account isolation, saved read state, pagination, and repeatable schema upgrades.
+
+Home also has a gingham welcome-card detail, illustrated stat cards, a coffee doodle, and a **Today's specials** strip linking to review creation, restaurant search, and friends.
 
 ```
 Dishboxd/

@@ -255,6 +255,7 @@ function ProfileContent({ id }) {
         onFollow={toggleFollow}
         onShowSection={showSection}
       />
+      {own && <div className="mt-4 flex flex-wrap gap-5 text-xs text-accent"><Link to="/bookmarks" className="underline">Want to try</Link><Link to="/settings/notifications" className="underline">Notification preferences</Link></div>}
       {error && (
         <p role="alert" className="my-4 text-sm text-brand">
           {error}

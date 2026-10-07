@@ -19,21 +19,22 @@ function withoutSticker(placements, stickerId) {
 // Loads the logged-in user's restaurants, visits, boxes and sticker book from the API, and saves
 // every change through it. The data lives in the Neon database, so it survives a refresh.
 export function JournalProvider({ children }) {
-  const [journal, setJournal] = useState({ restaurants: [], visits: [], boxes: [], stickers: [] })
+  const [journal, setJournal] = useState({ restaurants: [], visits: [], boxes: [], stickers: [], bookmarks: [] })
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api('/api/restaurants'), api('/api/visits'), api('/api/boxes'), api('/api/stickers')])
-      .then(([restaurantData, visitData, boxData, stickerData]) => {
+    Promise.all([api('/api/restaurants'), api('/api/visits'), api('/api/boxes'), api('/api/stickers'), api('/api/bookmarks')])
+      .then(([restaurantData, visitData, boxData, stickerData, bookmarkData]) => {
         if (cancelled) return
         setJournal({
           restaurants: restaurantData.restaurants,
           visits: visitData.visits,
           boxes: boxData.boxes,
           stickers: stickerData.stickers,
+          bookmarks: bookmarkData.bookmarks,
         })
         setStatus('ready')
       })
@@ -86,6 +87,28 @@ export function JournalProvider({ children }) {
     const { box } = await api('/api/boxes', { method: 'POST', body: { title } })
     setJournal((current) => ({ ...current, boxes: [...current.boxes, box] }))
     return box.id
+  }
+
+  async function saveBookmark(place) {
+    const { bookmark } = await api('/api/bookmarks', { method: 'POST', body: place })
+    setJournal((current) => ({ ...current, bookmarks: [bookmark, ...current.bookmarks.filter((item) => item.id !== bookmark.id)] }))
+    return bookmark
+  }
+
+  async function removeBookmark(id) {
+    await api(`/api/bookmarks/${id}`, { method: 'DELETE' })
+    setJournal((current) => ({ ...current, bookmarks: current.bookmarks.filter((item) => item.id !== id) }))
+  }
+
+  async function editVisit(id, draft) {
+    const { review } = await api(`/api/visits/${id}`, { method: 'PUT', body: draft })
+    updateVisit(review)
+    return review
+  }
+
+  async function deleteVisit(id) {
+    await api(`/api/visits/${id}`, { method: 'DELETE' })
+    setJournal((current) => ({ ...current, visits: current.visits.filter((visit) => visit.id !== id) }))
   }
 
   // Rename, describe or recolour a box: { title?, description?, color? }
@@ -182,6 +205,10 @@ export function JournalProvider({ children }) {
     ...journal,
     addVisit,
     updateVisit,
+    editVisit,
+    deleteVisit,
+    saveBookmark,
+    removeBookmark,
     addBox,
     updateBox,
     setBoxStickers,

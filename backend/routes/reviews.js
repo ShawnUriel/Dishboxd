@@ -72,7 +72,13 @@ router.put('/:id/repost', async (req, res) => {
   if (!visit || (!visit.is_public && visit.user_id !== req.userId)) return res.status(404).json(NOT_FOUND)
   if (visit.user_id === req.userId) throw new ValidationError('You cannot repost your own review.')
   await ensureProfile(req.userId)
-  await pool.query('INSERT INTO review_reposts (visit_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [
+  await pool.query(`WITH added AS (
+    INSERT INTO review_reposts (visit_id, user_id) VALUES ($1, $2)
+    ON CONFLICT DO NOTHING RETURNING visit_id, user_id
+  ) INSERT INTO notifications (recipient_id, actor_id, kind, visit_id)
+    SELECT v.user_id, added.user_id, 'repost', added.visit_id
+    FROM added JOIN visit_logs v ON v.id = added.visit_id
+    WHERE COALESCE((SELECT reposts FROM notification_preferences WHERE user_id = v.user_id), true)`, [
     req.params.id,
     req.userId,
   ])
