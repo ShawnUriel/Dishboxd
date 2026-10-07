@@ -36,12 +36,13 @@ function ReviewContent({ id }) {
   }, [id])
 
   const own = review?.author?.id === session?.user.id
+  const loadedReviewId = review?.id
 
   useEffect(() => {
-    if (!review || hash !== '#comments') return
+    if (!loadedReviewId || hash !== '#comments') return
     const frame = requestAnimationFrame(() => document.getElementById('comments')?.scrollIntoView({ block: 'start' }))
     return () => cancelAnimationFrame(frame)
-  }, [review?.id, hash])
+  }, [loadedReviewId, hash])
 
   function changed(partial) {
     setReview((current) => ({ ...current, ...partial }))

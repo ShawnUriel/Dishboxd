@@ -98,7 +98,7 @@ cp backend/.env.example backend/.env
 
 ### Database setup
 
-The notification upgrade adds a `notifications` table and indexes. Run the setup below before starting or deploying this version. It preserves existing data; previous follows and reposts are not backfilled as new alerts.
+The community upgrade adds notifications, private bookmarks, review comments, notification preferences, and review revision tracking. Run the setup below before starting or deploying this version. It preserves existing data; previous follows and reposts are not backfilled as new alerts.
 
 Neon Auth's own tables (`neon_auth.user`, `neon_auth.session` and so on) are created when you enable Neon Auth. Create or upgrade Dishboxd's tables from the backend folder:
 
@@ -280,6 +280,13 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 | `GET` | `/api/visits` | | The user's visits, newest first, each with its items (score, note, sticker), photos, stickers, likes, reposts and co-author | `200` |
 | `POST` | `/api/visits` | `{ restaurantId }` **or** `{ place: { placeId, name, address } }`, plus `{ date, rating, notes, dishes, category, isPublic, photoIds, coauthorId }`; each dish `{ name, price, score, description, sticker }` | Atomically saves a ticket, its items (score 0–12, note up to 500 characters, one owned sticker each), up to three owned photo references, the place's category, and an optional co-author invite (friends only). `isPublic` defaults to false. Any problem saves nothing. | `201` `{ restaurant, visit }` |
 | `PATCH` | `/api/visits/:id` | `{ isPublic }` | Shares or makes private one of the user's reviews | `200` |
+| `PUT` | `/api/visits/:id` | `{ revision, date, rating, notes, dishes, isPublic }` | Original author edits a review; stale revisions return `409` | `200` |
+| `DELETE` | `/api/visits/:id` | — | Original author deletes a review and its attached activity/photos | `200` |
+| `GET`, `POST` | `/api/bookmarks` | POST: `{ name, address?, category?, placeId? }` or `{ restaurantId }` | Private want-to-try list; saving a place twice is idempotent | `200`, `201` |
+| `DELETE` | `/api/bookmarks/:id` | — | Remove your own bookmark | `200` |
+| `GET`, `POST` | `/api/reviews/:id/comments` | GET: `?after=<id>`; POST: `{ body, parentId? }` | Read/comment/reply on a visible review; pages contain up to 50 comments | `200`, `201` |
+| `DELETE` | `/api/reviews/:id/comments/:commentId` | — | Comment author or review owner removes a comment, retaining replies | `200` |
+| `GET`, `PATCH` | `/api/notifications/preferences` | PATCH: `{ follows, reposts, comments, replies, digestFrequency }` | Save account-specific alert choices; frequency is `off`, `daily`, or `weekly` | `200` |
 | `GET` / `PATCH` | `/api/profiles/me` | For PATCH: `{ name, handle, bio }` | Loads or updates the user's profile | `200` |
 | `PUT` | `/api/profiles/me/top-picks` | `{ picks: [{ category, restaurantId, dish }] }` | Replaces the user's top picks, in order: up to eight, one per category (case-insensitive), each a restaurant with a shared review | `200` `{ topPicks }` |
 | `GET` | `/api/profiles?q=...` | | Searches diner names and usernames | `200` |
@@ -346,6 +353,16 @@ For an isolated browser preview, run `node test/browser-preview.cjs` from `backe
 
 ### Notifications and Home
 
+Bookmarks live at `/bookmarks`, accessible from Search, Collections and your profile. Save places directly from search results, review cards, a restaurant's record, or the manual bookmark form. They stay private and do not increase visited-place or meal counts. **Been here? Write a review** pre-fills a ticket while keeping the bookmark available until you remove it.
+
+**Edit review** opens a ticket editor for the original author. Dates, overall ratings, notes, dishes, scores, prices, item stickers and sharing can be changed. Photos, review stickers, co-authors, comments and reactions remain attached; retained dish IDs are preserved. A revision check rejects a stale save with `409`. **Manage review** opens the review page, where deletion requires confirmation and removes its photos, comments and reactions, while retaining the restaurant and other visits.
+
+Comments and replies appear below each review. Their visibility follows the review, including access for invited co-authors. A comment's author or the review's owner can remove it; its text becomes a tombstone so replies retain their context. New comments and direct replies notify their recipients without self-notifications or duplicates when the review author is also the reply recipient. Reply notifications disappear from an inbox when its user loses access to the underlying review.
+
+Notification preferences live at `/settings/notifications`, linked from the bell and your own profile. Toggles control new follows, reposts, comments and replies; previous alerts remain. Email digest frequency is saved with **off** as the default. **Email delivery is not active yet:** Resend provisioning requires an owned sending domain and sender address. A saved daily/weekly preference does not currently send email.
+
+`backend/test/community.test.js` tests bookmark privacy and deduplication, author-only review management, edit rollback and revision conflicts, comment pagination and visibility, moderation, preference persistence and delete cascades. Browser verification covers bookmark persistence and ticket prefill, replies and their notifications, editing, cancel/confirm deletion, preferences and mobile layouts.
+
 Home's top-right bell, beside the profile, shows new followers and review reposts. Alerts are saved to Postgres and refresh every 30 seconds while Home is visible, on window focus, and when the inbox opens. Opening an alert marks it read and takes you to the follower or review; **Mark all as read** acknowledges the fetched activity, leaving newer arrivals unread. Older notifications can be loaded inside the panel. Unfollowing or undoing a repost keeps the historical alert; retrying the same follow/repost request does not duplicate it. These are in-app notifications, not email or browser push.
 
 The inbox API is authenticated and scoped to its recipient: `GET /api/notifications?before=<id>`, `PATCH /api/notifications/:id/read`, and `PATCH /api/notifications/read` with `{ "through": "<latest-fetched-id>" }`. Notification IDs are strings. Tests in `backend/test/notifications.test.js` cover deduplication, account isolation, saved read state, pagination, and repeatable schema upgrades.
@@ -410,7 +427,7 @@ The app is deployed to Vercel. Accounts, journal forms, profiles, follows and ph
 - **Search leans toward Angeles City.** Without a location, Google favours places near the computer that asks, which would be the hosting company's data centre once deployed. So every search leans toward a 5 km circle around Angeles City (`SEARCH_AREA` in `backend/routes/places.js`). It is a bias, not a limit: places farther away still show up when their name matches, but someone searching from another city gets Angeles branches first.
 - **No menus from Google.** The Places API does not return menus or dishes, so a Google place links to its Google Maps page instead, and dish suggestions come only from your own past tickets.
 - **Photo availability depends on the source.** Search uses Google photos where available and your own review photos for saved restaurants. Manually added places need a review upload; Google errors show a retry action. Restaurant records and box photo cards use your own review uploads.
-- **No edit or delete** for saved review text/items or for boxes. Review sharing, box names/descriptions/colours, categories and stickers can be changed; boxes remain private.
+- **Boxes cannot be deleted yet.** Names/descriptions/colours can be edited; boxes remain private. Reviews now support editing and deletion by their original author.
 - **Stickers live in Postgres**, like photos: up to 60 per user at 400 KB each. Background cut-out works on plain backdrops; busy photos are kept whole (the preview shows the result before saving).
 - **Co-reviews have one co-author**, who must be a friend (both follow each other) and accept first. Shared review links open only for signed-in diners.
 - **Scores past 10 stop at 12.** Prices are pesos, up to ₱10,000 per item.
@@ -422,7 +439,7 @@ The app is deployed to Vercel. Accounts, journal forms, profiles, follows and ph
 **Next steps**
 
 1. Use the user's own location for Google searches (if they allow it) instead of always Angeles City.
-2. Edit and delete routes (`PATCH`/`DELETE`) for visits and boxes, and a public link for public boxes.
+2. Box deletion and a public link for public boxes; finish email-digest provisioning with an owned sending domain.
 3. Add pagination and move photos to dedicated object storage if the project grows beyond the course demo. Before a real launch: my own Google OAuth keys and email provider.
 
 ## Security checklist

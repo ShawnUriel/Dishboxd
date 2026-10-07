@@ -22,3 +22,5 @@ Thumbs.db
 
 # Local browser verification artifacts
 .verification/
+
+.vercel/
