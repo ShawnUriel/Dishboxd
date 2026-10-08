@@ -376,6 +376,14 @@ Home includes two personal keepsakes:
 
 Before deploying this home update, run `npm run db:setup` against the deployment database. The additive migration adds `sticker_placements.home_id` and extends its target constraint, preserving existing decorations. Passport stamps are derived from saved reviews and need no separate storage. Home's sticker loading failure stays within the corner rather than blocking the journal.
 
+### Settings, appearance and private accounts
+
+The **Settings** navbar tab opens `/settings`. It includes Light/Dark/System appearance, reduced motion, account privacy, default sharing for new reviews, profile editing, password changes for email/password accounts, a link to notification preferences, a JSON journal export (without image files), and sign-out. Appearance and sharing preferences save to the account through `GET/PATCH /api/settings`. A small local appearance cache applies the selected theme before the first paint. System appearance tracks device changes; reduced motion respects both the device preference and the in-app switch.
+
+Private accounts restrict shared reviews to mutual followers (friends). This applies to existing reviews, direct links, feeds, reposts, comments, photo/sticker access, restaurant summaries, top picks, and review-related notifications. A one-way follow does not grant access, and unfollowing in either direction revokes it. Name, username, bio and avatar remain discoverable. Individual unshared reviews stay personal, with the existing co-author exception only when account privacy also permits access. Switching back to public does not publish reviews previously marked Only me.
+
+Run the database setup **before deploying**: this upgrade adds `profiles.is_private` (default false) and `account_settings`. Existing sharing choices and journals remain intact. Password changes use the installed Neon Auth client's `changePassword` method with the current password and session revocation; passwords are never stored by the application. See the underlying [Better Auth session API](https://better-auth.com/docs/1.6/concepts/session-management).
+
 ```
 Dishboxd/
 ├── README.md                    Project documentation (this file)

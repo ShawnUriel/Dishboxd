@@ -57,7 +57,8 @@ async function main() {
         export const authClient = {
           useSession: () => ({data: {user, session: {token: user.id}}, isPending: false}),
           getSession: async () => ({data: {user, session: {token: user.id}}}),
-          signOut: async () => ({data: null, error: null})
+          signOut: async () => ({data: null, error: null}),
+          changePassword: async () => { globalThis.__fixturePasswordChanges = (globalThis.__fixturePasswordChanges || 0) + 1; return {data: {success: true}, error: null} }
         };
         export const authCall = async (fn) => fn();
         export const authErrorMessage = () => 'Verification fixture';

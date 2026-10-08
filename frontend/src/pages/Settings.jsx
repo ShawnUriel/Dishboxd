@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Button from '../components/atoms/Button.jsx'
+import PasswordSettings from '../components/organisms/PasswordSettings.jsx'
 import { authClient, authCall } from '../lib/auth.js'
 import { api } from '../lib/api.js'
 import { useSettings } from '../state/useSettings.js'
@@ -54,7 +55,7 @@ export default function Settings() {
       <Toggle label="Share new reviews by default" description={settings.isPrivate ? 'New reviews start shared with friends. You can change this on every review.' : 'New reviews start shared with signed-in diners. You can change this on every review.'} checked={settings.defaultReviewPublic} disabled={!ready || busy} onChange={value => change({ defaultReviewPublic: value })} />
       <Link to="/friends" className="settings-link">Manage your friends →</Link>
     </section>
-    <section id="account" className="paper-card settings-section"><p className="settings-eyebrow">03 / Your place at the table</p><h2>Account & profile</h2><dl className="settings-account"><div><dt>Signed in as</dt><dd>{session?.user.name || 'Food lover'}</dd></div><div><dt>Email</dt><dd>{session?.user.email || 'Managed by your sign-in provider'}</dd></div></dl><Link to="/profile" className="settings-link">Edit your name, username, bio & profile photo →</Link><p className="settings-description mt-3">Your login email is managed by your sign-in provider.</p></section>
+    <section id="account" className="paper-card settings-section"><p className="settings-eyebrow">03 / Your place at the table</p><h2>Account & profile</h2><dl className="settings-account"><div><dt>Signed in as</dt><dd>{session?.user.name || 'Food lover'}</dd></div><div><dt>Email</dt><dd>{session?.user.email || 'Managed by your sign-in provider'}</dd></div></dl><Link to="/profile" className="settings-link">Edit your name, username, bio & profile photo →</Link><p className="settings-description mt-3">Your login email is managed by your sign-in provider.</p><PasswordSettings /></section>
     <section id="notifications" className="paper-card settings-section"><p className="settings-eyebrow">04 / A little less noise</p><h2>Notifications</h2><p className="settings-description">Choose alerts for followers, reposts, comments, and replies, plus your optional email digest schedule.</p><Link to="/settings/notifications" className="settings-link">Manage notification preferences →</Link></section>
     <section id="data" className="paper-card settings-section"><p className="settings-eyebrow">05 / Keep your memories</p><h2>Your data & session</h2><p className="settings-description">Download your profile, reviews, restaurants, collections, bookmarks, and settings as a JSON file. Photos and sticker image files are not included.</p><div className="mt-5 flex flex-wrap gap-3"><Button variant="secondary" disabled={working || !ready} onClick={exportJournal}>Download my journal</Button><Button variant="secondary" disabled={working} onClick={signOut}>Sign out</Button></div></section>
   </div>
