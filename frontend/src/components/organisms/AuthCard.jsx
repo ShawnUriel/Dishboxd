@@ -1,10 +1,12 @@
+import logo from '../../assets/logo.png'
+
 // Shared frame for the log in, sign up and code pages: a ticket-style card on ruled paper.
 export default function AuthCard({ title, subtitle, children, footer }) {
   return (
     <div className="bg-lined grid min-h-screen place-items-center px-4 py-10">
       <main id="main" className="w-full max-w-[440px]">
-        <p className="text-center font-serif text-4xl font-bold tracking-tight">Dishboxd</p>
-        <p className="mt-1 text-center font-mono text-xs uppercase tracking-widest text-muted">
+        <img src={logo} alt="Dishboxd" width="480" height="377" className="mx-auto h-auto w-48 sm:w-56" />
+        <p className="mt-3 text-center font-mono text-xs uppercase tracking-widest text-muted">
           Your personal food journal
         </p>
 
