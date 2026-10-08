@@ -278,3 +278,12 @@ ALTER TABLE sticker_placements ADD CONSTRAINT sticker_placements_target_check
 ALTER TABLE sticker_placements DROP CONSTRAINT IF EXISTS sticker_placements_home_owner_check;
 ALTER TABLE sticker_placements ADD CONSTRAINT sticker_placements_home_owner_check CHECK (home_id IS NULL OR home_id = user_id);
 CREATE INDEX IF NOT EXISTS sticker_placements_home_idx ON sticker_placements (home_id) WHERE home_id IS NOT NULL;
+
+-- Account privacy limits every shared review without rewriting its sharing choice.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS account_settings (
+  user_id UUID PRIMARY KEY REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('system', 'light', 'dark')),
+  reduce_motion BOOLEAN NOT NULL DEFAULT false,
+  default_review_public BOOLEAN NOT NULL DEFAULT false
+);

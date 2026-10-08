@@ -8,6 +8,7 @@ const {
   toProfile,
   toPlacement,
   canSeeReview,
+  canSeeAccount,
   reviewColumns,
   reviewFrom,
   toReview,
@@ -51,19 +52,19 @@ router.patch('/me', async (req, res) => {
 // Only places with a shared review show, so a top pick never reveals a private visit.
 const MAX_TOP_PICKS = 8
 
-async function loadTopPicks(profileId, db = pool) {
+async function loadTopPicks(profileId, db = pool, viewer = profileId) {
   const { rows } = await db.query(
     `SELECT tp.category, tp.dish, r.id, r.name, r.address, r.category AS restaurant_category,
        round(avg(v.rating), 1)::float AS rating, count(v.id)::int AS review_count,
        (SELECT m.id FROM media m JOIN visit_logs pv ON pv.id = m.visit_id
-         WHERE pv.restaurant_id = r.id AND pv.is_public ORDER BY pv.visit_date DESC, m.created_at DESC LIMIT 1) AS photo_id
+         WHERE pv.restaurant_id = r.id AND pv.is_public AND ${canSeeReview('pv')} ORDER BY pv.visit_date DESC, m.created_at DESC LIMIT 1) AS photo_id
      FROM top_picks tp
      JOIN restaurants r ON r.id = tp.restaurant_id
-     JOIN visit_logs v ON v.restaurant_id = r.id AND v.is_public
-     WHERE tp.user_id = $1
+     JOIN visit_logs v ON v.restaurant_id = r.id AND v.is_public AND ${canSeeReview()}
+     WHERE tp.user_id = $2
      GROUP BY tp.position, tp.category, tp.dish, r.id
      ORDER BY tp.position`,
-    [profileId],
+    [viewer, profileId],
   )
   return rows.map((row) => ({
     category: row.category,
@@ -141,7 +142,7 @@ router.get('/feed', async (req, res) => {
   const followed = (column) => `EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.following_id = ${column})`
   const byPeopleYouFollow = `(${followed('v.user_id')} OR EXISTS (SELECT 1 FROM visit_coauthors co
     WHERE co.visit_id = v.id AND co.status = 'accepted' AND ${followed('co.user_id')}))`
-  const reposters = scope === 'foryou' ? `(rp.user_id = $1 OR ${followed('rp.user_id')})` : `v.user_id <> $1 AND ${followed('rp.user_id')}`
+  const reposters = `(${scope === 'foryou' ? `(rp.user_id = $1 OR ${followed('rp.user_id')})` : `v.user_id <> $1 AND ${followed('rp.user_id')}`}) AND ${canSeeAccount('rp.user_id')}`
   const items =
     scope === 'discover'
       ? 'SELECT v.id AS visit_id, v.created_at AS at, NULL::uuid AS reposter_id FROM visit_logs v WHERE v.is_public AND v.user_id <> $1'
@@ -159,7 +160,7 @@ router.get('/feed', async (req, res) => {
            ORDER BY i.at DESC)
          FROM items i JOIN profiles rpp ON rpp.user_id = i.reposter_id WHERE i.visit_id = latest.visit_id) AS reposters
      FROM latest JOIN visit_logs v ON v.id = latest.visit_id JOIN restaurants r ON r.id = v.restaurant_id
-     WHERE $2::timestamptz IS NULL OR latest.at < $2::timestamptz
+     WHERE ${canSeeReview()} AND ($2::timestamptz IS NULL OR latest.at < $2::timestamptz)
      ORDER BY latest.at DESC, v.id DESC LIMIT 20`,
     [req.userId, before],
   )
@@ -200,7 +201,7 @@ router.get('/:id/connections', async (req, res) => {
   const following = req.query.type === 'following'
   const { rows } = await pool.query(
     `SELECT ${profileColumns} FROM profiles p JOIN follows f ON p.user_id = f.${following ? 'following_id' : 'follower_id'}
-     WHERE f.${following ? 'follower_id' : 'following_id'} = $2 ORDER BY f.created_at DESC LIMIT 100`,
+     WHERE f.${following ? 'follower_id' : 'following_id'} = $2 AND ${canSeeAccount('$2')} ORDER BY f.created_at DESC LIMIT 100`,
     [req.userId, id],
   )
   res.json({ profiles: rows.map(toProfile) })
@@ -248,6 +249,10 @@ router.get('/:id', async (req, res) => {
   if (!rows.length) return res.status(404).json({ error: 'Profile not found.' })
   // Reviews they wrote or co-wrote that you can see (on your own profile, private ones too),
   // reviews they reposted, their restaurants with shared reviews, and the stickers on their card
+  const profile = toProfile(rows[0])
+  if (profile.isPrivate && id !== req.userId && !profile.isFriend) {
+    return res.json({ profile, restricted: true, reviews: [], restaurants: [], reposts: [], stickers: [], topPicks: [] })
+  }
   const [reviews, restaurants, reposts, stickers, topPicks] = await Promise.all([
     pool.query(
       `SELECT ${reviewColumns} ${reviewFrom}
@@ -260,22 +265,22 @@ router.get('/:id', async (req, res) => {
     pool.query(
       `SELECT r.id, r.name, r.address, r.category, round(avg(v.rating), 1)::float AS rating, count(*)::int AS review_count,
       (SELECT m.id FROM media m JOIN visit_logs pv ON pv.id = m.visit_id
-        WHERE pv.restaurant_id = r.id AND pv.is_public ORDER BY pv.visit_date DESC, m.created_at DESC LIMIT 1) AS photo_id
-      FROM restaurants r JOIN visit_logs v ON v.restaurant_id = r.id AND v.is_public
-      WHERE r.user_id = $1 GROUP BY r.id ORDER BY max(v.visit_date) DESC, r.name LIMIT 100`,
-      [id],
+        WHERE pv.restaurant_id = r.id AND pv.is_public AND ${canSeeReview('pv')} ORDER BY pv.visit_date DESC, m.created_at DESC LIMIT 1) AS photo_id
+      FROM restaurants r JOIN visit_logs v ON v.restaurant_id = r.id AND v.is_public AND ${canSeeReview()}
+      WHERE r.user_id = $2 GROUP BY r.id ORDER BY max(v.visit_date) DESC, r.name LIMIT 100`,
+      [req.userId, id],
     ),
     pool.query(
       `SELECT ${reviewColumns} FROM review_reposts rp
       JOIN visit_logs v ON v.id = rp.visit_id AND v.is_public JOIN restaurants r ON r.id = v.restaurant_id
-      WHERE rp.user_id = $2 ORDER BY rp.created_at DESC LIMIT 20`,
+      WHERE rp.user_id = $2 AND ${canSeeReview()} ORDER BY rp.created_at DESC LIMIT 20`,
       [req.userId, id],
     ),
     pool.query(
       'SELECT id, sticker_id, x, y, rotation, scale FROM sticker_placements WHERE profile_id = $1 ORDER BY created_at, id',
       [id],
     ),
-    loadTopPicks(id),
+    loadTopPicks(id, pool, req.userId),
   ])
   res.json({
     profile: toProfile(rows[0]),

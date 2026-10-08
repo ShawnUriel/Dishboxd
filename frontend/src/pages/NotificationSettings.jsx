@@ -27,7 +27,7 @@ export default function NotificationSettings() {
     finally { setBusy(false) }
   }
   return <div className="page-enter mx-auto max-w-2xl">
-    <Link to="/profile" className="text-xs text-accent underline">← Your profile</Link>
+    <Link to="/settings" className="text-xs text-accent underline">← Settings</Link>
     <h1 className="mt-6 font-serif text-3xl font-semibold">A little less noise.</h1>
     <p className="mt-3 text-sm leading-7 text-muted">Choose what reaches your notification inbox.</p>
     {error && <p role="alert" className="mt-5 text-sm text-brand">{error} {!preferences && <button type="button" className="underline" onClick={() => setAttempt((value) => value + 1)}>Retry</button>}</p>}

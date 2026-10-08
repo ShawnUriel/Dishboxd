@@ -31,7 +31,7 @@ router.get('/invites', async (req, res) => {
   const { rows } = await pool.query(
     `SELECT ${reviewColumns} ${reviewFrom}
      JOIN visit_coauthors invite ON invite.visit_id = v.id
-     WHERE invite.user_id = $1 AND invite.status = 'pending'
+     WHERE invite.user_id = $1 AND invite.status = 'pending' AND ${canSeeReview()}
      ORDER BY invite.invited_at DESC LIMIT 50`,
     [req.userId],
   )
@@ -67,7 +67,7 @@ router.delete('/:id/like', async (req, res) => {
 // PUT / DELETE /api/reviews/:id/repost: share someone else's shared review with your followers
 router.put('/:id/repost', async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json(NOT_FOUND)
-  const { rows } = await pool.query('SELECT user_id, is_public FROM visit_logs WHERE id = $1', [req.params.id])
+  const { rows } = await pool.query(`SELECT v.user_id, v.is_public FROM visit_logs v WHERE v.id = $2 AND ${canSeeReview()}`, [req.userId, req.params.id])
   const visit = rows[0]
   if (!visit || (!visit.is_public && visit.user_id !== req.userId)) return res.status(404).json(NOT_FOUND)
   if (visit.user_id === req.userId) throw new ValidationError('You cannot repost your own review.')
@@ -126,6 +126,7 @@ router.put('/:id/coauthor', async (req, res) => {
 // POST /api/reviews/:id/coauthor/accept: the invited friend becomes the second author
 router.post('/:id/coauthor/accept', async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Invite not found.' })
+  if (!(await visibleId(req.userId, req.params.id))) return res.status(404).json({ error: 'Invite not found.' })
   const { rowCount } = await pool.query(
     `UPDATE visit_coauthors SET status = 'accepted', accepted_at = now()
      WHERE visit_id = $1 AND user_id = $2 AND status = 'pending'`,

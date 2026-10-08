@@ -1,0 +1,51 @@
+html { color-scheme: light; }
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --color-paper: #1c2021;
+  --color-rule: #303536;
+  --color-sidebar: #24292a;
+  --color-card: #272c2d;
+  --color-card-edge: #464a43;
+  --color-badge: #373c37;
+  --color-line: #50564e;
+  --color-ink: #eee9dc;
+  --color-muted: #bebdad;
+  --color-faint: #a6a99a;
+  --color-brand: #efa8a0;
+  --color-brand-dark: #b9545c;
+  --color-accent: #a8c9e2;
+  --color-accent-dark: #53788e;
+}
+html[data-theme='dark'] .bg-brand { background-color: #843e48; }
+html[data-theme='dark'] .bg-accent { background-color: #3b607b; }
+html[data-theme='dark'] .paper-card { box-shadow: 0 3px 0 #0003, 0 8px 24px #0001; }
+html[data-theme='dark'] .home-welcome { background: radial-gradient(ellipse at 85% 90%, #dbb9810c, transparent 55%), var(--color-card); }
+html[data-theme='dark'] .sticker-corner-canvas { background: radial-gradient(#a6a08444 .8px, transparent .8px) 0 0 / 16px 16px, #30322c; border-color: #5c5e4f; box-shadow: 3px 4px 0 #434537; }
+html[data-theme='dark'] :is(.corner-handwriting, .corner-empty p, .corner-private) { color: #c9c3a6; }
+html[data-theme='dark'] .passport-page { background: #30352e; }
+html[data-theme='dark'] :is(.passport-page-caption, .passport-page-number, .passport-stamp.is-locked) { color: #c0beaa; }
+html[data-theme='dark'] .passport-stamp.is-earned { color: color-mix(in srgb, var(--stamp-ink), #fff7d6 53%); }
+html[data-theme='dark'] .main-navbar a { color: #f5eddf; }
+html[data-theme='dark'] .main-navbar .bg-tray { background-color: #785332; }
+html[data-theme='dark'] .main-navbar .bg-box-lavender { background-color: #585075; }
+html[data-theme='dark'] .main-navbar .bg-box-mint { background-color: #3f604b; }
+html[data-theme='dark'] :is(.catalog-box-front, .catalog-box-tab) { color: #2b2823; }
+html[data-theme='dark'] .catalog-box-dark :is(.catalog-box-front, .catalog-box-tab) { color: white; }
+html[data-theme='dark'] .bg-white { background-color: var(--color-card); }
+html[data-theme='dark'] .dining-table { background-color: #282b29; background-image: linear-gradient(90deg, #6f515530 50%, transparent 50%), linear-gradient(#6f515530 50%, transparent 50%); }
+html[data-theme='dark'] .plate { background: radial-gradient(circle, #383d3b 0 55%, #525750 55.6% 56.6%, #343a37 57.2% 66%, #565c54 66.6% 67.4%, #3e4540 68%); }
+html[data-theme='dark'] .napkin { background: repeating-linear-gradient(90deg, #3c5845 0 15px, #47614d 15px 18px); }
+html[data-theme='dark'] .cutlery { fill: #9da5a7; stroke: #606e70; }
+html[data-theme='dark'] .dish-line-fire { background: linear-gradient(90deg, transparent, #593e2929 18%, #593e2929 82%, transparent); }
+html[data-theme='dark'] .sticker-preview { background-color: #353a38; background-image: conic-gradient(#434940 25%, transparent 0 50%, #434940 0 75%, transparent 0); }
+html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, html[data-reduce-motion='true'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+@media (max-width: 767px) {
+  .main-navbar { padding-inline: 4px; }
+  .main-navbar ul { gap: 3px; }
+  .main-navbar li { min-width: 0; }
+  .main-navbar a { font-size: 8px; letter-spacing: 0; padding-inline: 2px; gap: 7px; }
+}
+@media (min-width: 768px) {
+  .main-navbar ul { gap: 14px; }
+  .main-navbar a { height: min(102px, calc((100dvh - 120px) / 6)); min-height: 48px; }
+}

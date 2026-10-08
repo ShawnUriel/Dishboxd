@@ -26,6 +26,7 @@ const { router: reviewsRouter } = require('./routes/reviews')
 const { router: notificationsRouter } = require('./routes/notifications')
 const { router: bookmarksRouter } = require('./routes/bookmarks')
 const { router: commentsRouter } = require('./routes/comments')
+const { router: settingsRouter } = require('./routes/settings')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -53,6 +54,7 @@ app.use('/api/reviews', requireUser, reviewsRouter)
 app.use('/api/reviews/:id/comments', requireUser, commentsRouter)
 app.use('/api/bookmarks', requireUser, bookmarksRouter)
 app.use('/api/notifications', requireUser, notificationsRouter)
+app.use('/api/settings', requireUser, settingsRouter)
 
 // Unknown routes get a plain 404 instead of Express's default HTML page
 app.use((req, res) => {

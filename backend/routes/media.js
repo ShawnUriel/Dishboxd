@@ -1,7 +1,7 @@
 const express = require('express')
 const { pool, transaction } = require('../db')
 const { ValidationError, isUuid } = require('../validate')
-const { ensureProfile } = require('../social')
+const { ensureProfile, canSeeReview } = require('../social')
 const { perUserLimit } = require('../rateLimit')
 const router = express.Router()
 const uploadLimit = perUserLimit({
@@ -76,8 +76,7 @@ router.get('/:id', async (req, res) => {
   const { rows } = await pool.query(
     `SELECT m.data FROM media m WHERE m.id = $1 AND (
       m.user_id = $2 OR EXISTS(SELECT 1 FROM profiles WHERE avatar_id = m.id)
-      OR EXISTS(SELECT 1 FROM visit_logs WHERE id = m.visit_id AND is_public)
-      OR EXISTS(SELECT 1 FROM visit_coauthors WHERE visit_id = m.visit_id AND user_id = $2))`,
+      OR EXISTS(SELECT 1 FROM visit_logs v WHERE v.id = m.visit_id AND ${canSeeReview('v', '$2')}))`,
     [req.params.id, req.userId],
   )
   if (!rows.length) return res.status(404).json({ error: 'Photo not found.' })

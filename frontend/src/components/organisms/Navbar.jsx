@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { FolderIcon, HomeIcon, SearchIcon, UserIcon, UsersIcon } from '../atoms/Icon.jsx'
+import { FolderIcon, HomeIcon, SearchIcon, UserIcon, UsersIcon, SettingsIcon } from '../atoms/Icon.jsx'
 
 const TYPE = 'text-[10px] tracking-wider sm:text-xs md:tracking-widest'
 // Smaller and tighter, so "Collections" fits a phone's bottom bar and the side tab
@@ -12,6 +12,7 @@ const tabs = [
   { to: '/lists', label: 'Collections', Icon: FolderIcon, color: 'bg-tray text-ink', type: LONG_TYPE },
   { to: '/friends', label: 'Friends', Icon: UsersIcon, color: 'bg-box-lavender text-ink' },
   { to: '/profile', label: 'Profile', Icon: UserIcon, color: 'bg-box-mint text-ink' },
+  { to: '/settings', label: 'Settings', Icon: SettingsIcon, color: 'bg-badge text-ink' },
 ]
 
 // Index-card tabs down the left edge; on a phone they become a bottom tab bar.
@@ -21,7 +22,7 @@ export default function Navbar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 bg-sidebar px-2 pt-2 pb-[env(safe-area-inset-bottom)] sm:px-3 md:sticky md:top-0 md:h-screen md:w-28 md:shrink-0 md:px-0 md:pt-7 md:pb-0"
+      className="main-navbar fixed inset-x-0 bottom-0 z-20 bg-sidebar px-2 pt-2 pb-[env(safe-area-inset-bottom)] sm:px-3 md:sticky md:top-0 md:h-screen md:w-28 md:shrink-0 md:px-0 md:pt-7 md:pb-0"
     >
       <ul className="flex gap-1.5 sm:gap-2 md:flex-col md:gap-4.5">
         {tabs.map(({ to, label, Icon, color, end, type = TYPE }) => (

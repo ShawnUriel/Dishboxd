@@ -105,7 +105,7 @@ function ProfileContent({ id }) {
         method: data.profile.isFollowing ? 'DELETE' : 'PUT',
       })
       if (['followers', 'following'].includes(section)) setLoadingConnections(true)
-      setData((current) => ({ ...current, profile: result.profile }))
+      setData(await api(`/api/profiles/${result.profile.id}`))
     } catch (failure) {
       setError(failure.message)
     } finally {
@@ -255,7 +255,8 @@ function ProfileContent({ id }) {
         onFollow={toggleFollow}
         onShowSection={showSection}
       />
-      {own && <div className="mt-4 flex flex-wrap gap-5 text-xs text-accent"><Link to="/bookmarks" className="underline">Want to try</Link><Link to="/settings/notifications" className="underline">Notification preferences</Link></div>}
+      {own && <div className="mt-4 flex flex-wrap gap-5 text-xs text-accent"><Link to="/bookmarks" className="underline">Want to try</Link><Link to="/settings" className="underline">Settings & privacy</Link></div>}
+      {data.restricted && <div className="paper-card mt-6 p-6"><h2 className="font-serif text-2xl">This journal is for friends.</h2><p className="mt-3 text-sm leading-7 text-muted">Follow each other to see this diner’s reviews, photos, and favourites. A one-way follow does not unlock a private account.</p></div>}
       {error && (
         <p role="alert" className="my-4 text-sm text-brand">
           {error}

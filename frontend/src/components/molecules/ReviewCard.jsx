@@ -15,6 +15,7 @@ import { formatDate, formatMoney } from '../../lib/format.js'
 import { fireLevel, hottestScore, isOnFire } from '../../lib/scores.js'
 import { visitTotal } from '../../lib/stats.js'
 import { useStickerPlacements } from '../../lib/useStickerPlacements.js'
+import { useSettings } from '../../state/useSettings.js'
 
 // One review: who wrote it, where, every item with its own score, the notes and photos,
 // stickers, and likes / reposts / sharing. Any item past 10 sets the whole card on fire.
@@ -32,6 +33,7 @@ export default function ReviewCard({
   preview = false,
   stickerEditor,
 }) {
+  const { settings } = useSettings()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [decorating, setDecorating] = useState(false)
@@ -211,7 +213,7 @@ export default function ReviewCard({
             <CoauthorControls review={review} own={own} currentUserId={currentUserId} onChange={onChange} />
             {isAuthor && (
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                <span className="text-muted">{review.isPublic ? 'Shared on your profile' : 'Just for you'}</span>
+                <span className="text-muted">{review.isPublic ? (isAuthor ? settings.isPrivate : review.accountPrivate) ? 'Shared with friends' : 'Shared on your profile' : 'Only me'}</span>
                 <div className="flex items-center gap-4">
                   {canDecorate && (
                     <button

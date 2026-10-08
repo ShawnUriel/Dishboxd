@@ -4,7 +4,7 @@ const { ValidationError } = require('../validate')
 const { ensureProfile, canSeeReview } = require('../social')
 
 const router = express.Router()
-const visible = `(n.kind IN ('follow', 'repost') OR EXISTS (
+const visible = `(n.kind = 'follow' OR EXISTS (
   SELECT 1 FROM visit_logs v WHERE v.id = n.visit_id AND ${canSeeReview()}))`
 
 router.get('/preferences', async (req, res) => {

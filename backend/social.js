@@ -16,10 +16,18 @@ async function ensureProfile(id) {
 }
 
 // $1 is always the signed-in viewer, so every profile says whether they follow each other
-const profileColumns = `p.user_id, p.handle, p.display_name, p.bio, p.avatar_id,
+// Friends means mutual following. Private accounts never grant access to a
+// one-way follower; unfollowing either direction revokes access immediately.
+function canSeeAccount(owner, viewer = '$1') {
+  return `(${owner} = ${viewer} OR NOT COALESCE((SELECT privacy.is_private FROM profiles privacy WHERE privacy.user_id = ${owner}), false)
+    OR (EXISTS (SELECT 1 FROM follows af WHERE af.follower_id = ${viewer} AND af.following_id = ${owner})
+      AND EXISTS (SELECT 1 FROM follows bf WHERE bf.follower_id = ${owner} AND bf.following_id = ${viewer})))`
+}
+
+const profileColumns = `p.user_id, p.handle, p.display_name, p.bio, p.avatar_id, p.is_private,
   (SELECT count(*)::int FROM follows WHERE following_id = p.user_id) AS follower_count,
   (SELECT count(*)::int FROM follows WHERE follower_id = p.user_id) AS following_count,
-  (SELECT count(*)::int FROM visit_logs WHERE user_id = p.user_id AND is_public) AS review_count,
+  (SELECT count(*)::int FROM visit_logs WHERE user_id = p.user_id AND is_public AND ${canSeeAccount('p.user_id')}) AS review_count,
   EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = p.user_id) AS is_following,
   EXISTS(SELECT 1 FROM follows WHERE follower_id = p.user_id AND following_id = $1) AS follows_you`
 
@@ -30,6 +38,7 @@ function toProfile(row) {
     name: row.display_name,
     bio: row.bio,
     avatarId: row.avatar_id,
+    isPrivate: row.is_private,
     followerCount: row.follower_count,
     followingCount: row.following_count,
     reviewCount: row.review_count,
@@ -50,12 +59,14 @@ function toPlacement(row) {
 }
 
 // A review is visible to the viewer ($1) when it is shared, theirs, or they were invited to co-author it
-const canSeeReview = (alias = 'v') => `(${alias}.is_public OR ${alias}.user_id = $1
-  OR EXISTS (SELECT 1 FROM visit_coauthors cs WHERE cs.visit_id = ${alias}.id AND cs.user_id = $1))`
+const canSeeReview = (alias = 'v', viewer = '$1') => `(${alias}.user_id = ${viewer}
+  OR (${canSeeAccount(`${alias}.user_id`, viewer)} AND (${alias}.is_public
+    OR EXISTS (SELECT 1 FROM visit_coauthors cs WHERE cs.visit_id = ${alias}.id AND cs.user_id = ${viewer}))))`
 
 // Everything a review card shows. Use with FROM visit_logs v JOIN restaurants r, and the viewer as $1.
 // A pending co-author is shown only to the author and the person invited.
 const reviewColumns = `v.id, v.user_id, v.restaurant_id, v.visit_date, v.rating, v.notes, v.is_public, v.created_at, v.revision, v.edited_at,
+  COALESCE((SELECT privacy.is_private FROM profiles privacy WHERE privacy.user_id = v.user_id), false) AS account_private,
   r.google_place_id,
   (SELECT count(*)::int FROM review_comments rc WHERE rc.visit_id = v.id AND rc.deleted_at IS NULL) AS comment_count,
   r.name AS restaurant_name, r.address AS restaurant_address, r.category AS restaurant_category,
@@ -90,6 +101,7 @@ function toReview(row) {
     rating: row.rating,
     notes: row.notes,
     isPublic: row.is_public,
+    accountPrivate: row.account_private,
     dishes: row.dishes,
     photoIds: row.photo_ids,
     stickers: row.stickers,
@@ -140,6 +152,7 @@ module.exports = {
   placementJson,
   toPlacement,
   canSeeReview,
+  canSeeAccount,
   reviewColumns,
   reviewFrom,
   toReview,

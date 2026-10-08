@@ -112,3 +112,7 @@ export function PencilIcon() {
     </Svg>
   )
 }
+
+export function SettingsIcon() {
+  return <Svg><circle cx="12" cy="12" r="3" /><path d="m9 3 1-1h4l1 3 3 1 3 1v4l-2 2 1 3-3 3-3-1-2 2H8l-1-3-3-1-2-2 1-4 3-1 1-3Z" /></Svg>
+}

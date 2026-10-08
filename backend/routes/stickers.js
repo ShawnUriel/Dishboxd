@@ -1,7 +1,7 @@
 const express = require('express')
 const { pool, transaction } = require('../db')
 const { ValidationError, number, isUuid } = require('../validate')
-const { ensureProfile, toPlacement } = require('../social')
+const { ensureProfile, toPlacement, canSeeReview } = require('../social')
 const { perUserLimit } = require('../rateLimit')
 
 const router = express.Router()
@@ -113,8 +113,7 @@ router.get('/:id/image', async (req, res) => {
        SELECT 1 FROM sticker_placements sp
        LEFT JOIN dishes d ON d.id = sp.dish_id
        LEFT JOIN visit_logs v ON v.id = COALESCE(sp.visit_id, d.visit_log_id)
-       WHERE sp.sticker_id = s.id AND (sp.profile_id IS NOT NULL OR (v.id IS NOT NULL AND (v.is_public
-         OR EXISTS (SELECT 1 FROM visit_coauthors c WHERE c.visit_id = v.id AND c.user_id = $2))))))`,
+       WHERE sp.sticker_id = s.id AND (sp.profile_id IS NOT NULL OR (v.id IS NOT NULL AND ${canSeeReview('v', '$2')}))))`,
     [req.params.id, req.userId],
   )
   if (!rows.length) return res.status(404).json({ error: 'Sticker not found.' })

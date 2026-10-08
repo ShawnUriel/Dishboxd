@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "db:setup": "node setup-db.js",
-    "test": "node --test test/integration.test.js test/features.test.js test/feed.test.js test/places.test.js test/notifications.test.js test/community.test.js test/home.test.js"
+    "test": "node --test test/integration.test.js test/features.test.js test/feed.test.js test/places.test.js test/notifications.test.js test/community.test.js test/home.test.js test/settings.test.js"
   },
   "keywords": [],
   "author": "",

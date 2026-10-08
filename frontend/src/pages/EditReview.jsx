@@ -8,12 +8,14 @@ import { api } from '../lib/api.js'
 import { authClient } from '../lib/auth.js'
 import { todayIso } from '../lib/format.js'
 import { useJournal } from '../state/useJournal.js'
+import { useSettings } from '../state/useSettings.js'
 
 export default function EditReview() {
   const { id } = useParams()
   return <Editor key={id} id={id} />
 }
 function Editor({ id }) {
+  const { settings } = useSettings()
   const navigate = useNavigate()
   const { data: session } = authClient.useSession()
   const { editVisit } = useJournal()
@@ -52,6 +54,7 @@ function Editor({ id }) {
         <DishEntryList dishes={draft.dishes} onChange={(value) => set('dishes', value)} />
         <div><label htmlFor="edit-review-notes" className="block text-xs">Your review</label><textarea id="edit-review-notes" value={draft.notes} onChange={(event) => set('notes', event.target.value)} maxLength={2000} rows={6} className="bg-notes mt-2 block w-full rounded-md p-3 text-sm" /></div>
         <label className="flex items-center gap-3 text-xs"><input type="checkbox" checked={draft.isPublic} onChange={(event) => set('isPublic', event.target.checked)} />Share on my profile</label>
+        <p className="text-xs leading-6 text-muted">{settings.isPrivate ? 'Shared reviews are visible only to your friends.' : 'Shared reviews are visible to signed-in diners.'} Leave unchecked for “Only me” and an invited co-author, subject to account privacy.</p>
         <div className="flex items-center gap-4"><Button type="submit">{busy ? 'Saving…' : 'Save changes'}</Button><Link to={`/review/${id}`} className="text-xs text-accent underline">Cancel</Link></div>
       </fieldset>
     </form>}

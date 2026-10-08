@@ -19,9 +19,11 @@ import { restaurantCode, todayIso } from '../lib/format.js'
 import { reviewOnFire } from '../lib/scores.js'
 import { dishSuggestions } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
+import { useSettings } from '../state/useSettings.js'
 
 export default function VisitForm() {
   const location = useLocation()
+  const { settings } = useSettings()
   const initialPlace = location.state?.place
   const navigate = useNavigate()
   const { addVisit, addBox, visits, restaurants, boxes, stickers: stickerBook } = useJournal()
@@ -46,7 +48,8 @@ export default function VisitForm() {
   const [rating, setRating] = useState(0)
   const [dishes, setDishes] = useState(() => [newDish(), newDish()])
   const [notes, setNotes] = useState('')
-  const [isPublic, setIsPublic] = useState(false)
+  const [sharingChoice, setIsPublic] = useState(null)
+  const isPublic = sharingChoice ?? settings.defaultReviewPublic
   const [coauthor, setCoauthor] = useState(null)
   const [choosingCoauthor, setChoosingCoauthor] = useState(false)
   const [photoIds, setPhotoIds] = useState([])
@@ -471,8 +474,8 @@ export default function VisitForm() {
               <span className="text-sm">
                 Share this review on my profile
                 <span className="mt-1 block text-xs leading-6 text-muted">
-                  Other signed-in diners can see this review and its photos, like it and repost it. Leave unchecked
-                  to keep it private. Your collection stays personal either way.
+                  {settings.isPrivate ? 'Only friends can see this review and its photos. ' : 'Other signed-in diners can see this review and its photos. '}
+                  Leave unchecked for “Only me” (and an invited co-author). Your account privacy always applies.
                 </span>
               </span>
             </label>

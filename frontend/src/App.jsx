@@ -7,6 +7,7 @@ import Home from './pages/Home.jsx'
 import Bookmarks from './pages/Bookmarks.jsx'
 import EditReview from './pages/EditReview.jsx'
 import NotificationSettings from './pages/NotificationSettings.jsx'
+import Settings from './pages/Settings.jsx'
 import ListDetail from './pages/ListDetail.jsx'
 import Lists from './pages/Lists.jsx'
 import Login from './pages/Login.jsx'
@@ -72,6 +73,7 @@ function App() {
             <Route path="/search" element={<Search />} />
             <Route path="/bookmarks" element={<Bookmarks />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/log/new" element={<VisitForm />} />
             <Route path="/restaurant/:id" element={<RestaurantProfile />} />
             <Route path="/lists" element={<Lists />} />

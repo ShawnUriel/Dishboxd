@@ -6,6 +6,15 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dishboxd</title>
+    <script>
+      // Apply the last appearance before the first paint; account settings sync after sign-in.
+      try {
+        var appearance = JSON.parse(localStorage.getItem('dishboxd-appearance') || '{}');
+        var theme = ['light', 'dark', 'system'].includes(appearance.theme) ? appearance.theme : 'system';
+        document.documentElement.dataset.theme = theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
+        document.documentElement.dataset.reduceMotion = String(appearance.reduceMotion === true);
+      } catch (_) { document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+    </script>
   </head>
   <body>
     <div id="root"></div>
