@@ -2,8 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { FolderIcon, HomeIcon, SearchIcon, UserIcon, UsersIcon } from '../atoms/Icon.jsx'
 
 const TYPE = 'text-[10px] tracking-wider sm:text-xs md:tracking-widest'
-// Smaller and tighter, so "Collections" fits a phone's bottom bar and the narrow side tab
-const LONG_TYPE = 'text-[9px] tracking-normal sm:text-xs sm:tracking-wider md:text-[9px] md:tracking-normal'
+// Smaller and tighter, so "Collections" fits a phone's bottom bar and the side tab
+const LONG_TYPE = 'text-[9px] tracking-normal sm:text-xs sm:tracking-wider md:tracking-wide'
 
 // Orange tab uses dark text: white on orange fails the 4.5:1 contrast check.
 const tabs = [
@@ -16,21 +16,22 @@ const tabs = [
 
 // Index-card tabs down the left edge; on a phone they become a bottom tab bar.
 // The active tab sticks out further, like a pulled divider in a card drawer.
+// Phone tabs never shrink below their label, so "Collections" can take the extra width it needs.
 export default function Navbar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 bg-sidebar px-3 pt-2 pb-[env(safe-area-inset-bottom)] md:sticky md:top-0 md:h-screen md:w-20 md:shrink-0 md:px-0 md:pt-7 md:pb-0"
+      className="fixed inset-x-0 bottom-0 z-20 bg-sidebar px-2 pt-2 pb-[env(safe-area-inset-bottom)] sm:px-3 md:sticky md:top-0 md:h-screen md:w-28 md:shrink-0 md:px-0 md:pt-7 md:pb-0"
     >
-      <ul className="flex gap-2 md:flex-col md:gap-4.5">
+      <ul className="flex gap-1.5 sm:gap-2 md:flex-col md:gap-4.5">
         {tabs.map(({ to, label, Icon, color, end, type = TYPE }) => (
-          <li key={to} className="min-w-0 flex-1 md:flex-none">
+          <li key={to} className="flex-1 md:flex-none">
             <NavLink
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-2 rounded-t-xl py-3 font-mono font-semibold uppercase transition-all ${type} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:ml-2.5 md:h-[102px] md:translate-y-0 md:rounded-t-none md:rounded-r-xl md:py-0 ${color} ${
-                  isActive ? 'shadow-md md:w-20' : 'translate-y-1.5 hover:translate-y-0.5 md:w-[70px] md:hover:w-[74px]'
+                `flex flex-col items-center justify-center gap-2 rounded-t-xl px-1.5 py-3 font-mono font-semibold uppercase transition-all ${type} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:ml-2.5 md:h-[102px] md:translate-y-0 md:rounded-t-none md:rounded-r-xl md:px-2 md:py-0 ${color} ${
+                  isActive ? 'shadow-md md:w-28' : 'translate-y-1.5 hover:translate-y-0.5 md:w-[102px] md:hover:w-[106px]'
                 }`
               }
             >
