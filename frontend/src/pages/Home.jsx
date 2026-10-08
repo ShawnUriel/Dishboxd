@@ -7,6 +7,8 @@ import ReviewCard from '../components/molecules/ReviewCard.jsx'
 import HomePaperNote from '../components/molecules/HomePaperNote.jsx'
 import HomeTrays from '../components/organisms/HomeTrays.jsx'
 import NotificationBell from '../components/organisms/NotificationBell.jsx'
+import FoodPassport from '../components/organisms/FoodPassport.jsx'
+import HomeStickerCorner from '../components/organisms/HomeStickerCorner.jsx'
 import { FolderIcon, PencilIcon, SearchIcon, UsersIcon } from '../components/atoms/Icon.jsx'
 import { api } from '../lib/api.js'
 import { authCall, authClient } from '../lib/auth.js'
@@ -16,6 +18,7 @@ import { mergeReview } from '../lib/reviews.js'
 import { averageRating, newestFirst } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
 import './Home.css'
+import './HomeKeepsakes.css'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -211,6 +214,10 @@ export default function Home() {
           </Link>
         ))}
       </section>
+      <div className="home-keepsakes">
+        <FoodPassport name={name} />
+        <HomeStickerCorner key={session?.user.id} userId={session?.user.id} />
+      </div>
       <HomeTrays boxes={boxes} visits={visits} restaurantsById={byId} />
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <section aria-labelledby="journal-title" className="mx-auto w-full min-w-0 max-w-[40rem]">

@@ -20,6 +20,7 @@ const uploadLimit = perUserLimit({
 // Where a sticker can go, and the check that the card belongs to the signed-in user ($1).
 // $3 is the card's id; $2 (the sticker) is checked separately in the same query.
 const TARGETS = {
+  home: { column: 'home_id', owned: 'SELECT id FROM neon_auth."user" WHERE id = $3 AND id = $1' },
   profile: { column: 'profile_id', owned: 'SELECT 1 FROM profiles WHERE user_id = $3 AND user_id = $1' },
   visit: { column: 'visit_id', owned: 'SELECT 1 FROM visit_logs WHERE id = $3 AND user_id = $1' },
   box: { column: 'box_id', owned: 'SELECT 1 FROM boxes WHERE id = $3 AND user_id = $1' },
@@ -66,6 +67,15 @@ router.get('/', async (req, res) => {
     [req.userId],
   )
   res.json({ stickers: rows.map(toSticker) })
+})
+
+// A user's home decorations are private, even if their profile is public.
+router.get('/home', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT id, sticker_id, x, y, rotation, scale FROM sticker_placements WHERE home_id = $1 AND user_id = $1 ORDER BY created_at, id',
+    [req.userId],
+  )
+  res.json({ placements: rows.map(toPlacement) })
 })
 
 // POST /api/stickers?style=pixel with a PNG body: add a sticker to the user's book

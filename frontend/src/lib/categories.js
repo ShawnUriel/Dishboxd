@@ -16,6 +16,8 @@ export const CATEGORY_SUGGESTIONS = [
   'Indian',
   'Mexican',
   'American',
+  'French',
+  'Mediterranean',
   'Burgers',
   'Pizza',
   'Fast food',

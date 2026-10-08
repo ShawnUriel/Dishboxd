@@ -268,3 +268,13 @@ ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_target_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_target_check
   CHECK ((kind = 'follow' AND visit_id IS NULL) OR (kind <> 'follow' AND visit_id IS NOT NULL));
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS comment_id BIGINT REFERENCES review_comments(id) ON DELETE CASCADE;
+
+-- A private home canvas, independent of stickers on the public profile.
+ALTER TABLE sticker_placements ADD COLUMN IF NOT EXISTS home_id UUID REFERENCES neon_auth."user"(id) ON DELETE CASCADE;
+ALTER TABLE sticker_placements DROP CONSTRAINT IF EXISTS sticker_placements_check;
+ALTER TABLE sticker_placements DROP CONSTRAINT IF EXISTS sticker_placements_target_check;
+ALTER TABLE sticker_placements ADD CONSTRAINT sticker_placements_target_check
+  CHECK (num_nonnulls(profile_id, visit_id, box_id, dish_id, home_id) = 1);
+ALTER TABLE sticker_placements DROP CONSTRAINT IF EXISTS sticker_placements_home_owner_check;
+ALTER TABLE sticker_placements ADD CONSTRAINT sticker_placements_home_owner_check CHECK (home_id IS NULL OR home_id = user_id);
+CREATE INDEX IF NOT EXISTS sticker_placements_home_idx ON sticker_placements (home_id) WHERE home_id IS NOT NULL;
