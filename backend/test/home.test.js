@@ -57,5 +57,36 @@ test('passport earns one stamp per reviewed cuisine, handles aliases and updates
   const tagged = [{ ...visits[0], cuisine: 'Korean' }, { ...visits[1], cuisine: '' }, { ...visits[2], cuisine: 'Italian' }]
   assert.deepEqual(collectPassport(tagged, restaurants).filter(stamp => stamp.earned).map(stamp => stamp.name), ['Korean', 'Italian'])
   assert.equal(collectPassport([{ ...visits[0], cuisine: null }], restaurants).find(stamp => stamp.earned).name, 'Japanese')
-  assert.equal(collectPassport([{ ...visits[0], cuisine: 'Other' }], restaurants).filter(stamp => stamp.earned).length, 0)
+  assert.equal(collectPassport([{ ...visits[0], cuisine: 'Family Fusion' }], restaurants).find(stamp => stamp.earned).name, 'Family Fusion')
+})
+
+test('worldwide and custom cuisines earn distinct, normalized stamps without inventing legacy categories', async () => {
+  const { CUISINES, cuisineStamp, collectPassport, passportCuisine } = await import('../../frontend/src/lib/passport.js')
+  const { cuisineFromTypes, CUISINE_TYPES } = require('../cuisines')
+  assert.ok(CUISINES.length > 200)
+  assert.equal(new Set(CUISINES.map(cuisine => cuisine.id)).size, CUISINES.length)
+  for (const [type, name] of Object.entries(CUISINE_TYPES)) {
+    assert.equal(cuisineFromTypes(['restaurant', type]), name)
+    assert.equal(passportCuisine(name), name, `Google cuisine ${name} has a catalogue stamp`)
+  }
+  assert.equal(cuisineStamp(' Iranian cuisine ').name, 'Persian')
+  assert.equal(cuisineStamp('Greek').name, 'Greek')
+  assert.equal(cuisineStamp('Cantonese').name, 'Cantonese')
+  assert.equal(cuisineStamp(' tex mex ').name, 'Tex-Mex')
+  assert.equal(cuisineStamp(''), null)
+  const restaurants = [{ id: 'a', category: 'Cafe' }]
+  const visits = [
+    { id: '2', restaurantId: 'a', date: '2026-10-03', cuisine: '  Family   fusion ' },
+    { id: '1', restaurantId: 'a', date: '2026-10-01', cuisine: 'family fusion cuisine' },
+    { id: '3', restaurantId: 'a', date: '2026-10-02', cuisine: 'Ethiopian' },
+    { id: '4', restaurantId: 'a', date: '2026-10-02', cuisine: null },
+    { id: '5', restaurantId: 'a', date: '2026-10-02', cuisine: '' },
+  ]
+  const earned = collectPassport(visits, restaurants).filter(stamp => stamp.earned)
+  assert.equal(earned.length, 2)
+  const custom = earned.find(stamp => stamp.name === 'Family Fusion')
+  assert.equal(custom.visits, 2)
+  assert.equal(custom.firstVisit.id, '1')
+  assert.equal(collectPassport(visits.slice(2), restaurants).some(stamp => stamp.name === 'Family Fusion'), false)
+  assert.equal(collectPassport([], [{ id: 'unvisited', category: 'Thai' }]).some(stamp => stamp.earned), false)
 })

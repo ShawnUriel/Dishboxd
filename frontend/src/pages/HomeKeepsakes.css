@@ -19,6 +19,15 @@
 .passport-book-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 9px 12px; font-size: 9px; color: #f0dfb5; }
 .passport-book-toolbar > span { text-transform: uppercase; letter-spacing: .12em; }
 .passport-book-toolbar button { text-decoration: underline; text-underline-offset: 3px; }
+.passport-filters { padding: 0 9px 12px; color: #f0dfb5; font-size: 10px; }
+.passport-filters label { display: block; margin-bottom: 6px; }
+.passport-filters input { width: 100%; border: 1px solid var(--color-line); border-radius: 5px; background: var(--color-paper); color: var(--color-ink); padding: 9px 10px; font-size: 12px; }
+.passport-filters > div { display: flex; gap: 8px; margin-top: 10px; }
+.passport-filters button { padding: 6px 10px; border: 1px solid #e3d1b060; border-radius: 20px; }
+.passport-filters button[aria-pressed='true'] { background: #f0dfb5; color: #254c41; }
+.passport-empty { background: var(--color-paper); color: var(--color-muted); padding: 36px 22px; text-align: center; font-size: 12px; line-height: 1.8; }
+.passport-jump { display: flex; justify-content: center; align-items: center; gap: 10px; padding: 0 10px 10px; font-size: 10px; color: #f0dfb5; }
+.passport-jump select { color: var(--color-ink); background: var(--color-paper); border-radius: 4px; padding: 5px; }
 .passport-spread { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); animation: passport-page-in 200ms ease; }
 .passport-page { position: relative; padding: 14px 12px 28px; background: radial-gradient(ellipse at 35% 60%, #b6c9b017, transparent 70%), #fbf6e8; }
 .passport-page:first-child { border-radius: 3px 0 0 3px; box-shadow: inset -13px 0 16px -13px #57493360; }
@@ -27,7 +36,7 @@
 .passport-stamps { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .passport-stamp { width: min(100%, 174px); min-height: 112px; padding: 6px; border: 2px solid currentColor; outline: 1px solid currentColor; outline-offset: -6px; border-radius: 48% 48% 12% 12% / 25% 25% 12% 12%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .passport-stamp svg { width: 43px; height: 43px; }
-.passport-stamp-name { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; line-height: 1.5; }
+.passport-stamp-name { max-width: 100%; overflow-wrap: anywhere; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; line-height: 1.5; }
 .passport-stamp-date { font-size: 8px; letter-spacing: .06em; margin-top: 3px; }
 .passport-stamp.is-earned { color: var(--stamp-ink); transform: rotate(-4deg); background: #b6ac7807; transition: transform 160ms ease; }
 .passport-stamp.is-earned:nth-child(2) { transform: rotate(4deg); border-radius: 10px; }

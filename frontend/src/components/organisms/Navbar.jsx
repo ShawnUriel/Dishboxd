@@ -12,7 +12,7 @@ const tabs = [
   { to: '/lists', label: 'Collections', Icon: FolderIcon, color: 'bg-tray text-ink', type: LONG_TYPE },
   { to: '/friends', label: 'Friends', Icon: UsersIcon, color: 'bg-box-lavender text-ink' },
   { to: '/profile', label: 'Profile', Icon: UserIcon, color: 'bg-box-mint text-ink' },
-  { to: '/settings', label: 'Settings', Icon: SettingsIcon, color: 'bg-badge text-ink' },
+  { to: '/settings', label: 'Settings', Icon: SettingsIcon, color: 'bg-nav-settings text-ink' },
 ]
 
 // Index-card tabs down the left edge; on a phone they become a bottom tab bar.
@@ -31,8 +31,8 @@ export default function Navbar() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-2 rounded-t-xl px-1.5 py-3 font-mono font-semibold uppercase transition-all ${type} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:ml-2.5 md:h-[102px] md:translate-y-0 md:rounded-t-none md:rounded-r-xl md:px-2 md:py-0 ${color} ${
-                  isActive ? 'shadow-md md:w-28' : 'translate-y-1.5 hover:translate-y-0.5 md:w-[102px] md:hover:w-[106px]'
+                `nav-tab flex flex-col items-center justify-center gap-2 rounded-t-xl px-1.5 py-3 font-mono font-semibold uppercase transition-all ${type} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:ml-2.5 md:h-[102px] md:translate-y-0 md:rounded-t-none md:rounded-r-xl md:px-2 md:py-0 ${color} ${
+                  isActive ? 'md:w-28' : 'translate-y-1.5 hover:translate-y-0.5 md:w-[102px] md:hover:w-[106px]'
                 }`
               }
             >
