@@ -17,6 +17,14 @@ function Svg({ children }) {
   )
 }
 
+export function CheckIcon() {
+  return (
+    <Svg>
+      <path d="m5 12.5 4.5 4.5L19 7" />
+    </Svg>
+  )
+}
+
 export function HomeIcon() {
   return (
     <Svg>

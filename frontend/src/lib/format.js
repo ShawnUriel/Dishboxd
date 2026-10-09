@@ -26,6 +26,13 @@ export function formatDate(isoDate) {
   })
 }
 
+// A moment something happened, in the viewer's own time zone: "Oct 9, 2026, 3:42 PM"
+const dateTime = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+
+export function formatDateTime(timestamp) {
+  return dateTime.format(new Date(timestamp))
+}
+
 export function formatMonth(date = new Date()) {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }

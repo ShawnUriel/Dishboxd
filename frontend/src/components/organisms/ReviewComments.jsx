@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Button from '../atoms/Button.jsx'
 import { CommentIcon } from '../atoms/Icon.jsx'
 import { api } from '../../lib/api.js'
+import { formatDateTime } from '../../lib/format.js'
 
 export default function ReviewComments({ review, currentUserId, onCountChange }) {
   const [items, setItems] = useState([])
@@ -62,7 +63,7 @@ export default function ReviewComments({ review, currentUserId, onCountChange })
       {!items.length && !error && <p className="my-6 text-sm text-muted">No comments yet. Pull up a chair.</p>}
       <ol className="mt-4 space-y-4">{items.map((item) => <li id={`comment-${item.id}`} key={item.id} className={`scroll-mt-6 border-b border-dashed border-line pb-4 ${item.parentId ? 'ml-3 border-l-2 pl-3 sm:ml-6' : ''}`}>
         {item.parentId && <p className="mb-1 text-[10px] text-muted">Replying to {item.replyToName || 'a diner'}</p>}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link to={`/profile/${item.author.id}`} className="text-xs font-semibold text-accent">{item.author.name}</Link><time dateTime={item.createdAt} className="text-[10px] text-muted">{new Date(item.createdAt).toLocaleString()}</time></div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link to={`/profile/${item.author.id}`} className="text-xs font-semibold text-accent">{item.author.name}</Link><time dateTime={item.createdAt} className="text-[10px] text-muted">{formatDateTime(item.createdAt)}</time></div>
         <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{item.deleted ? <i className="text-muted">Comment removed.</i> : item.body}</p>
         {!item.deleted && <div className="mt-2 flex gap-4 text-xs">
           <button type="button" disabled={busy} className="text-accent underline" onClick={() => { setReply(item); input.current?.focus() }}>Reply</button>

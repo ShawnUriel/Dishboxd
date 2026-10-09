@@ -7,6 +7,7 @@ import Photo from '../components/atoms/Photo.jsx'
 import PrivateBadge from '../components/atoms/PrivateBadge.jsx'
 import TextField from '../components/atoms/TextField.jsx'
 import PersonCard from '../components/molecules/PersonCard.jsx'
+import UsernameField from '../components/molecules/UsernameField.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
 import StickerLayer from '../components/molecules/StickerLayer.jsx'
 import StickerTray from '../components/molecules/StickerTray.jsx'
@@ -15,6 +16,7 @@ import { api } from '../lib/api.js'
 import { authClient } from '../lib/auth.js'
 import { categoryCounts, categoryName } from '../lib/categories.js'
 import { preparePhoto } from '../lib/photos.js'
+import { isValidUsername } from '../lib/username.js'
 import { mergeReview } from '../lib/reviews.js'
 import { useStickerPlacements } from '../lib/useStickerPlacements.js'
 import { useJournal } from '../state/useJournal.js'
@@ -139,6 +141,11 @@ function ProfileContent({ id }) {
 
   async function saveProfile(event) {
     event.preventDefault()
+    // An older username longer than 10 characters can be kept, but a new one must follow the rule
+    if (draft.handle !== data.profile.handle && !isValidUsername(draft.handle)) {
+      setError('Your new username does not follow every rule yet. Each rule gets a tick once it is met.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -298,16 +305,12 @@ function ProfileContent({ id }) {
               required
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             />
-            <TextField
+            <UsernameField
               id="profile-handle"
-              label="Username"
               value={draft.handle}
-              minLength={3}
-              maxLength={30}
               required
-              pattern="[a-zA-Z0-9_]+"
-              onChange={(e) => setDraft({ ...draft, handle: e.target.value })}
-              hint="3–30 letters, numbers or underscores."
+              showRules={draft.handle !== data.profile.handle}
+              onChange={(handle) => setDraft({ ...draft, handle })}
             />
           </div>
           <div>

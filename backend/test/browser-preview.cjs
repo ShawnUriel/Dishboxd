@@ -14,11 +14,18 @@ async function main() {
   }
   const [alex, bea] = sandbox.users
   for (const user of sandbox.users) await sandbox.request(user, '/api/profiles/me')
+  // Fixture diners have finished onboarding, unless PREVIEW_ONBOARDING=1 asks to see it as a new account
+  if (process.env.PREVIEW_ONBOARDING !== '1') {
+    const [, , casey] = sandbox.users
+    for (const [user, handle] of [[alex, 'alex.eats'], [casey, 'casey']])
+      await sandbox.request(user, '/api/profiles/me/username', { method: 'PUT', body: { handle } })
+    for (const user of sandbox.users) await sandbox.request(user, '/api/profiles/me/tour', { method: 'PUT' })
+  }
   await sandbox.request(bea, '/api/profiles/me', {
     method: 'PATCH',
     body: {
       name: 'Bea Santos',
-      handle: 'bea_at_the_table',
+      handle: 'bea.eats',
       bio: 'In search of a really good bowl of noodles. Coffee always welcome.',
       topPickIds: [],
     },

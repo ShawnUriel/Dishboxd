@@ -13,7 +13,7 @@ import BookmarkButton from './BookmarkButton.jsx'
 import ReviewPhotos from './ReviewPhotos.jsx'
 import StickerLayer from './StickerLayer.jsx'
 import StickerTray from './StickerTray.jsx'
-import { formatDate, formatMoney } from '../../lib/format.js'
+import { formatDate, formatDateTime, formatMoney } from '../../lib/format.js'
 import { fireLevel, hottestScore, isOnFire } from '../../lib/scores.js'
 import { visitTotal } from '../../lib/stats.js'
 import { useStickerPlacements } from '../../lib/useStickerPlacements.js'
@@ -131,7 +131,6 @@ export default function ReviewCard({
           <div className="min-w-0">
             <p className="mb-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wider text-muted">
               {formatDate(review.date)}
-              {review.editedAt && <span className="text-[9px] normal-case">Edited</span>}
               <CategoryTag category={restaurant?.category} />
               {review.cuisine && review.cuisine !== restaurant?.category && <CategoryTag category={`${review.cuisine} cuisine`} />}
               {level > 0 && <span className="fire-stamp">On fire</span>}
@@ -149,6 +148,18 @@ export default function ReviewCard({
               </h3>
             )}
             {restaurant?.address && <p className="mt-1 text-xs text-muted">{restaurant.address}</p>}
+            {review.createdAt && (
+              <p className="mt-1 flex flex-wrap gap-x-1.5 text-xs text-muted">
+                <span className="whitespace-nowrap">
+                  Posted <time dateTime={review.createdAt}>{formatDateTime(review.createdAt)}</time>
+                </span>{' '}
+                {review.editedAt && (
+                  <span className="whitespace-nowrap">
+                    · Edited <time dateTime={review.editedAt}>{formatDateTime(review.editedAt)}</time>
+                  </span>
+                )}
+              </p>
+            )}
           </div>
           <span
             className="shrink-0 rounded-full border border-brand/25 bg-card px-3 py-2 text-sm font-semibold text-brand"

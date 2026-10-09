@@ -94,6 +94,8 @@ function toReview(row) {
   return {
     id: row.id,
     revision: row.revision,
+    // When it was posted and last edited (timestamps); `date` below is the day of the meal
+    createdAt: row.created_at,
     editedAt: row.edited_at,
     commentCount: row.comment_count,
     restaurantId: row.restaurant_id,

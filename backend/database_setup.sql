@@ -89,7 +89,7 @@ ALTER TABLE media DROP CONSTRAINT IF EXISTS media_data_check;
 ALTER TABLE media ADD CONSTRAINT media_data_check CHECK (octet_length(data) BETWEEN 4 AND 4000000);
 CREATE TABLE IF NOT EXISTS profiles (
   user_id UUID PRIMARY KEY REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
-  handle TEXT NOT NULL UNIQUE CHECK (handle ~ '^[a-z0-9_]{3,30}$'),
+  handle TEXT NOT NULL UNIQUE CHECK (handle ~ '^[a-z0-9_.!?*#$&-]{3,30}$'),
   display_name TEXT NOT NULL CHECK (length(display_name) BETWEEN 1 AND 60),
   bio TEXT NOT NULL DEFAULT '' CHECK (length(bio) <= 280),
   avatar_id UUID REFERENCES media(id) ON DELETE SET NULL,
@@ -327,3 +327,20 @@ CREATE TABLE IF NOT EXISTS account_settings (
   reduce_motion BOOLEAN NOT NULL DEFAULT false,
   default_review_public BOOLEAN NOT NULL DEFAULT false
 );
+
+-- Onboarding: new diners pick a username (3 to 10 characters; the API checks the details) and
+-- see a short tour. The wider 30-character limit keeps automatic handles and usernames chosen
+-- before the 10-character rule valid until their owner changes them.
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_handle_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_handle_check CHECK (handle ~ '^[a-z0-9_.!?*#$&-]{3,30}$');
+-- Runs once, when the columns are first added: existing diners skip the tour, and only those still
+-- on an automatic diner_… handle are asked for a username.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = 'profiles' AND column_name = 'tour_done_at') THEN
+    ALTER TABLE profiles ADD COLUMN handle_set_at TIMESTAMPTZ, ADD COLUMN tour_done_at TIMESTAMPTZ;
+    UPDATE profiles SET tour_done_at = created_at,
+      handle_set_at = CASE WHEN handle ~ '^diner_[0-9a-f]{24}$' THEN NULL ELSE created_at END;
+  END IF;
+END $$;

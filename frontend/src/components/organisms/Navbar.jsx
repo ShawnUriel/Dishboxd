@@ -30,6 +30,7 @@ export default function Navbar() {
             <NavLink
               to={to}
               end={end}
+              data-tour={label.toLowerCase()}
               className={({ isActive }) =>
                 `nav-tab flex flex-col items-center justify-center gap-2 rounded-t-xl px-1.5 py-3 font-mono font-semibold uppercase transition-all ${type} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:ml-2.5 md:h-[102px] md:translate-y-0 md:rounded-t-none md:rounded-r-xl md:px-2 md:py-0 ${color} ${
                   isActive ? 'md:w-28' : 'translate-y-1.5 hover:translate-y-0.5 md:w-[102px] md:hover:w-[106px]'

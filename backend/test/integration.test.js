@@ -116,6 +116,8 @@ test('profiles, follows, review sharing and media boundaries against Postgres', 
       .data
     assert.equal(saved.visit.isPublic, false)
     assert.equal(saved.visit.date, ticket.date)
+    // The day of the meal stays a plain date; the review also carries the moment it was posted
+    assert.ok(Math.abs(Date.parse(saved.visit.createdAt) - Date.now()) < 60_000, 'posted just now, with a time')
     assert.equal((await request(alex, `/api/profiles/${bea}`)).data.reviews.length, 0)
     assert.equal((await request(alex, '/api/profiles/feed?scope=following')).data.reviews.length, 0)
     assert.equal((await request(alex, '/api/profiles/feed?scope=discover')).data.reviews.length, 0)

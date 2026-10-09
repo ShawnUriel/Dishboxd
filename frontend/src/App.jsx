@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { GuestOnly, RequireAuth } from './components/organisms/AuthGate.jsx'
 import Navbar from './components/organisms/Navbar.jsx'
+import Onboarding from './components/organisms/Onboarding.jsx'
 import InviteBanner from './components/organisms/InviteBanner.jsx'
 import PageTransition from './components/organisms/PageTransition.jsx'
 import Home from './pages/Home.jsx'
@@ -52,6 +53,7 @@ function JournalLayout() {
           </div>
         </main>
       </div>
+      <Onboarding />
     </>
   )
 }

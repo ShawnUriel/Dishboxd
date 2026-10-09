@@ -1,0 +1,85 @@
+/* Username step: a ticket-style card over the dimmed journal */
+.onboarding-dialog {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--color-card-edge);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: 0 18px 50px #1c140c40;
+}
+.onboarding-dialog::backdrop { background: rgb(26 22 18 / .55); backdrop-filter: blur(2px); }
+html[data-theme='dark'] .onboarding-dialog::backdrop { background: rgb(0 0 0 / .65); }
+
+/* "that's you!" scribbled beside the field, with a pencil arrow down to it */
+.onboarding-scribble { position: absolute; top: 14px; right: 1.5rem; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+.onboarding-scribble span { margin-right: -4px; font: italic 500 1.05rem/1 var(--font-serif); color: var(--color-muted); rotate: -4deg; }
+.onboarding-scribble svg { display: block; margin-top: -2px; overflow: visible; }
+@media (min-width: 640px) { .onboarding-scribble { right: 2rem; } }
+
+/* Pencil arrows: graphite in light mode, pale lead on dark paper */
+.pencil-arrow { --pencil: #4b463d; fill: none; stroke: var(--pencil); stroke-linecap: round; stroke-linejoin: round; }
+html[data-theme='dark'] .pencil-arrow { --pencil: #e2dccb; }
+.pencil-arrow path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: pencil-draw 620ms 120ms cubic-bezier(.45, .1, .35, 1) forwards; }
+.pencil-arrow .pencil-arrow-line { stroke-width: 2.7; }
+.pencil-arrow .pencil-arrow-ghost { stroke-width: 1.2; opacity: .5; translate: 1.4px -1.2px; animation-delay: 190ms; }
+.pencil-arrow .pencil-arrow-head { stroke-width: 2.7; animation-duration: 240ms; animation-delay: 700ms; }
+@keyframes pencil-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .pencil-arrow path { animation: none; stroke-dashoffset: 0; } }
+html[data-reduce-motion='true'] .pencil-arrow path { animation: none; stroke-dashoffset: 0; }
+
+/* Welcome tour: the page dims except for a spotlight on the step's target */
+.tour-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+}
+.tour-dialog::backdrop { background: transparent; }
+.tour-spotlight {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 200vmax rgb(26 22 18 / .62);
+  pointer-events: none;
+  transition: left 320ms ease, top 320ms ease, width 320ms ease, height 320ms ease;
+}
+html[data-theme='dark'] .tour-spotlight { box-shadow: 0 0 0 200vmax rgb(0 0 0 / .62); }
+/* Tour arrows sit on the dimmed page, so they are drawn in pale lead, like a white pencil */
+.tour-arrow { position: fixed; inset: 0; overflow: visible; pointer-events: none; filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / .45)); }
+.tour-arrow .pencil-arrow { --pencil: #fbf5e6; }
+.tour-arrow .pencil-arrow .pencil-arrow-line, .tour-arrow .pencil-arrow .pencil-arrow-head { stroke-width: 3; }
+.tour-note {
+  position: fixed;
+  width: min(19rem, calc(100vw - 2rem));
+  padding: 1.15rem 1.25rem 1rem;
+  border: 1px solid var(--color-card-edge);
+  border-radius: 10px;
+  background: var(--color-card);
+  box-shadow: 0 12px 34px #1c140c45;
+  rotate: -0.8deg;
+}
+/* A strip of tape holding the note down */
+.tour-note::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 72px;
+  height: 20px;
+  translate: -50% 0;
+  rotate: 3deg;
+  background: #e9dcb4cc;
+  box-shadow: 0 1px 2px #3b332e20;
+}
+html[data-theme='dark'] .tour-note::before { background: #6d6249cc; }

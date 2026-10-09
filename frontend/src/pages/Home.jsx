@@ -121,7 +121,7 @@ export default function Home() {
   return (
     <div className="page-enter home-scrapbook pb-20">
       {createPortal(
-        <Link to="/log/new" className="home-new-review">
+        <Link to="/log/new" className="home-new-review" data-tour="new-review">
           <PencilIcon />
           <span>New review</span>
         </Link>,
@@ -137,7 +137,9 @@ export default function Home() {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3 sm:gap-4">
-          <NotificationBell />
+          <div data-tour="notifications">
+            <NotificationBell />
+          </div>
           <Link to="/profile" className="flex items-center gap-2 text-xs text-muted">
             <Photo
               id={profile?.avatarId}

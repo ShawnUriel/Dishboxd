@@ -1,6 +1,6 @@
 const express = require('express')
 const { pool, transaction } = require('../db')
-const { ValidationError, text, optionalText, isUuid } = require('../validate')
+const { ValidationError, text, optionalText, isUuid, username } = require('../validate')
 const {
   ensureProfile,
   userId,
@@ -15,37 +15,65 @@ const {
 } = require('../social')
 const router = express.Router()
 
+// Your own profile, plus which onboarding steps are left: picking a username, then the tour
+async function loadMe(id) {
+  const { rows } = await pool.query(
+    `SELECT ${profileColumns}, p.handle_set_at, p.tour_done_at FROM profiles p WHERE p.user_id = $1`,
+    [id],
+  )
+  return {
+    profile: toProfile(rows[0]),
+    onboarding: { needsUsername: !rows[0].handle_set_at, needsTour: !rows[0].tour_done_at },
+  }
+}
+
+const usernameTaken = (res) => res.status(409).json({ error: 'That username is already taken. Try another one.' })
+
 router.get('/me', async (req, res) => {
   await ensureProfile(req.userId)
-  const { rows } = await pool.query(`SELECT ${profileColumns} FROM profiles p WHERE p.user_id = $1`, [
-    req.userId,
-  ])
-  res.json({ profile: toProfile(rows[0]) })
+  res.json(await loadMe(req.userId))
 })
 
 router.patch('/me', async (req, res) => {
   await ensureProfile(req.userId)
   const name = text(req.body?.name, 'Name', { min: 1, max: 60 })
-  const handle = text(req.body?.handle, 'Username', { min: 3, max: 30 }).toLowerCase()
-  if (!/^[a-z0-9_]+$/.test(handle))
-    throw new ValidationError('Username can contain letters, numbers and underscores only.')
+  const requested = text(req.body?.handle, 'Username', { min: 1, max: 30 }).toLowerCase()
+  const { rows } = await pool.query('SELECT handle FROM profiles WHERE user_id = $1', [req.userId])
+  // A username chosen before the 10-character rule stays valid until its owner changes it
+  const handle = requested === rows[0].handle ? requested : username(requested)
   const bio = optionalText(req.body?.bio, 'Bio', { max: 280 })
   try {
-    await pool.query(`UPDATE profiles SET display_name = $2, handle = $3, bio = $4 WHERE user_id = $1`, [
-      req.userId,
-      name,
-      handle,
-      bio,
-    ])
+    await pool.query(
+      `UPDATE profiles SET display_name = $2, handle = $3, bio = $4,
+         handle_set_at = CASE WHEN handle <> $3 THEN now() ELSE handle_set_at END
+       WHERE user_id = $1`,
+      [req.userId, name, handle, bio],
+    )
   } catch (error) {
-    if (error.code === '23505')
-      return res.status(409).json({ error: 'That username is already taken. Try another one.' })
+    if (error.code === '23505') return usernameTaken(res)
     throw error
   }
-  const { rows } = await pool.query(`SELECT ${profileColumns} FROM profiles p WHERE p.user_id = $1`, [
-    req.userId,
-  ])
-  res.json({ profile: toProfile(rows[0]) })
+  res.json(await loadMe(req.userId))
+})
+
+// PUT /api/profiles/me/username { handle }: the first onboarding step, right after sign-up
+router.put('/me/username', async (req, res) => {
+  await ensureProfile(req.userId)
+  const handle = username(req.body?.handle)
+  try {
+    await pool.query('UPDATE profiles SET handle = $2, handle_set_at = now() WHERE user_id = $1', [req.userId, handle])
+  } catch (error) {
+    if (error.code === '23505') return usernameTaken(res)
+    throw error
+  }
+  res.json(await loadMe(req.userId))
+})
+
+// PUT /api/profiles/me/tour: the welcome tour was finished or skipped, so it never shows again
+router.put('/me/tour', async (req, res) => {
+  await ensureProfile(req.userId)
+  await pool.query('UPDATE profiles SET tour_done_at = COALESCE(tour_done_at, now()) WHERE user_id = $1', [req.userId])
+  res.json(await loadMe(req.userId))
 })
 
 // Top picks: one all-time favourite place per category, with the dish to order there.
