@@ -16,7 +16,7 @@ export default function HomeMemoryCollage({ visits }) {
     </Link>
     <FoodSticker kind="coffee" className="collage-coffee" />
     <FoodSticker kind="cherry" className="collage-cherries" />
-    <span className="collage-postmark" aria-hidden="true">SAVOUR<br /><b>THE LITTLE</b><br />THINGS</span>
+    <span className="collage-postmark" aria-hidden="true"><span>SAVOUR</span><b>THE LITTLE</b><span>THINGS</span></span>
     <svg className="collage-doodle" viewBox="0 0 110 70" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M8 12c29 1 15 37 43 36 20-1 15-24 3-20-11 4 7 37 40 25m-9-9 11 9-10 9" /></svg>
   </div>
 }
