@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Button from '../components/atoms/Button.jsx'
-import { UsersIcon } from '../components/atoms/Icon.jsx'
-import TextField from '../components/atoms/TextField.jsx'
+import { SearchIcon, UsersIcon } from '../components/atoms/Icon.jsx'
 import PersonCard from '../components/molecules/PersonCard.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
 import { api } from '../lib/api.js'
@@ -13,7 +12,6 @@ const TABS = [
   ['friends', 'Friends'],
   ['followBack', 'Follow back'],
   ['following', 'Following'],
-  ['find', 'Find users'],
 ]
 
 // Your people: friends (you follow each other), diners to follow back, diners you follow,
@@ -21,7 +19,9 @@ const TABS = [
 export default function Friends() {
   const { data: session } = authClient.useSession()
   const [params, setParams] = useSearchParams()
-  const tab = TABS.some(([value]) => value === params.get('tab')) ? params.get('tab') : 'friends'
+  const tab = params.get('tab') === 'find' || TABS.some(([value]) => value === params.get('tab'))
+    ? params.get('tab')
+    : 'friends'
   const [people, setPeople] = useState(null)
   const [invites, setInvites] = useState([])
   const [notice, setNotice] = useState('')
@@ -103,22 +103,6 @@ export default function Friends() {
         </Link>
       </header>
 
-      <section aria-label="Find and add users" className="paper-card mt-7 p-5 sm:p-6">
-        <TextField
-          id="people-search"
-          type="search"
-          label="Search users"
-          placeholder="Name or @username…"
-          hint="Search all diners and add someone to follow. You become friends when you follow each other."
-          value={query}
-          maxLength={60}
-          onChange={(event) => {
-            setQuery(event.target.value)
-            setParams({ tab: 'find' }, { replace: true })
-          }}
-        />
-      </section>
-
       <div className="my-7 grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-box-lavender/20 py-5">
         {[
           [groups.friends.length, 'Friends'],
@@ -162,6 +146,42 @@ export default function Friends() {
         </section>
       )}
 
+      <form
+        role="search"
+        aria-label="Find and add users"
+        className="paper-card mb-4 p-5 sm:p-6"
+        onSubmit={(event) => {
+          event.preventDefault()
+          setParams({ tab: 'find' }, { replace: true })
+        }}
+      >
+        <label htmlFor="people-search" className="text-xs font-semibold uppercase tracking-wider text-ink">
+          Search users
+        </label>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-line bg-paper px-4 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+            <span className="shrink-0 text-muted" aria-hidden="true"><SearchIcon /></span>
+            <input
+              id="people-search"
+              type="search"
+              placeholder="Name or @username…"
+              aria-describedby="people-search-hint"
+              className="min-w-0 w-full bg-transparent py-3 text-base text-ink placeholder:text-faint focus:outline-none"
+              value={query}
+              maxLength={60}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                setParams({ tab: 'find' }, { replace: true })
+              }}
+            />
+          </div>
+          <Button type="submit">Search</Button>
+        </div>
+        <p id="people-search-hint" className="mt-3 text-xs leading-6 text-muted">
+          Find diners by name or username and add them to follow.
+        </p>
+      </form>
+
       <nav aria-label="Friends sections" className="flex gap-1 overflow-x-auto rounded-lg border border-line bg-card p-1">
         {TABS.map(([value, label]) => (
           <button
@@ -175,7 +195,7 @@ export default function Friends() {
             className={`shrink-0 rounded-md px-3 py-2 text-xs transition-colors ${tab === value ? 'bg-ink text-paper' : 'text-muted hover:bg-sidebar/50'}`}
           >
             {label}
-            {value !== 'find' && people && <span className="ml-1.5 opacity-70">{groups[value].length}</span>}
+            {people && <span className="ml-1.5 opacity-70">{groups[value].length}</span>}
           </button>
         ))}
       </nav>
