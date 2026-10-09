@@ -27,6 +27,32 @@ test('bookmarks, review management, conversations and notification preferences',
     }
   })
 
+  await t.test('ticket cuisine is optional, validated, persists per visit and updates passport on edits', async () => {
+    const { collectPassport } = await import('../../frontend/src/lib/passport.js')
+    const tagged = await save(casey, { ...ticket, cuisine: '  Japanese  ', category: 'Cafe' })
+    assert.equal(tagged.cuisine, 'Japanese')
+    const untagged = await save(casey, { ...ticket, cuisine: '' })
+    assert.equal(untagged.cuisine, '')
+    assert.equal(review.cuisine, null)
+    const stamps = async () => collectPassport((await request(casey, '/api/visits')).data.visits, (await request(casey, '/api/restaurants')).data.restaurants).filter(stamp => stamp.earned).map(stamp => stamp.name)
+    assert.deepEqual(await stamps(), ['Japanese'])
+    for (const cuisine of [42, {}, 'x'.repeat(41)]) {
+      assert.equal((await request(casey, '/api/visits', { method: 'POST', body: { ...ticket, cuisine } })).status, 400)
+    }
+    assert.equal((await request(alex, `/api/visits/${tagged.id}`, { method: 'PUT', body: { ...tagged, cuisine: 'Thai' } })).status, 404)
+    let changed = await request(casey, `/api/visits/${tagged.id}`, { method: 'PUT', body: { ...tagged, cuisine: 'Korean' } })
+    assert.equal(changed.status, 200)
+    assert.deepEqual(await stamps(), ['Korean'])
+    const { cuisine: omitted, ...olderClient } = changed.data.review
+    changed = await request(casey, `/api/visits/${tagged.id}`, { method: 'PUT', body: olderClient })
+    assert.equal(changed.data.review.cuisine, 'Korean')
+    changed = await request(casey, `/api/visits/${tagged.id}`, { method: 'PUT', body: { ...changed.data.review, cuisine: '' } })
+    assert.equal(changed.data.review.cuisine, '')
+    assert.deepEqual(await stamps(), [])
+    await request(casey, `/api/visits/${tagged.id}`, { method: 'DELETE' })
+    await request(casey, `/api/visits/${untagged.id}`, { method: 'DELETE' })
+  })
+
   await t.test('bookmarks are deduplicated, private and do not create visited restaurants', async () => {
     const before = (await request(casey, '/api/restaurants')).data.restaurants.length
     const results = await Promise.all([1, 2, 3].map(() => request(casey, '/api/bookmarks', { method: 'POST', body: { name: '  Nice   Cafe  ', address: ' Main Street ' } })))

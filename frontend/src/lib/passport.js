@@ -15,13 +15,17 @@ export const CUISINES = [
   { id: 'mediterranean', name: 'Mediterranean', aliases: ['mediterranean', 'greek', 'levantine'], icon: 'olive', color: '#527158' },
 ]
 
+export function passportCuisine(value) {
+  const normalized = (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/\s+cuisine$/, '')
+  return CUISINES.find(cuisine => cuisine.aliases.includes(normalized))?.name || ''
+}
+
 export function collectPassport(visits, restaurants) {
   const places = new Map(restaurants.map(place => [place.id, place]))
   return CUISINES.map(cuisine => {
     const matches = visits.filter(visit => {
-      const category = (places.get(visit.restaurantId)?.category ?? visit.restaurant?.category ?? '')
-        .trim().toLowerCase().replace(/\s+/g, ' ').replace(/\s+cuisine$/, '')
-      return cuisine.aliases.includes(category)
+      const tag = visit.cuisine ?? places.get(visit.restaurantId)?.category ?? visit.restaurant?.category ?? ''
+      return passportCuisine(tag) === cuisine.name
     }).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     return { ...cuisine, earned: matches.length > 0, firstVisit: matches[0], visits: matches.length }
   })

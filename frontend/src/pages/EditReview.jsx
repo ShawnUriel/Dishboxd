@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/atoms/Button.jsx'
 import TextField from '../components/atoms/TextField.jsx'
 import StarRating from '../components/atoms/StarRating.jsx'
+import CuisineField from '../components/molecules/CuisineField.jsx'
+import { passportCuisine } from '../lib/passport.js'
 import DishEntryList from '../components/organisms/DishEntryList.jsx'
 import { api } from '../lib/api.js'
 import { authClient } from '../lib/auth.js'
@@ -27,7 +29,7 @@ function Editor({ id }) {
     const controller = new AbortController()
     api(`/api/reviews/${id}`, { signal: controller.signal }).then(({ review: value }) => {
       setReview(value)
-      setDraft({ date: value.date, rating: value.rating, notes: value.notes, revision: value.revision, isPublic: value.isPublic, dishes: value.dishes.map((dish) => ({ ...dish, key: dish.id })) })
+      setDraft({ date: value.date, rating: value.rating, notes: value.notes, cuisine: value.cuisine ?? passportCuisine(value.restaurant.category), revision: value.revision, isPublic: value.isPublic, dishes: value.dishes.map((dish) => ({ ...dish, key: dish.id })) })
     }).catch((failure) => { if (!controller.signal.aborted) setError(failure.message) })
     return () => controller.abort()
   }, [id])
@@ -50,6 +52,7 @@ function Editor({ id }) {
         <legend className="mb-4 font-serif text-2xl">{review.restaurant.name}</legend>
         <p className="text-xs leading-6 text-muted">Update your food story. Your photos, review stickers and conversation stay with this ticket.</p>
         <TextField id="edit-visit-date" label="Day of your visit" type="date" value={draft.date} max={todayIso()} required onChange={(event) => set('date', event.target.value)} />
+        <CuisineField value={draft.cuisine} onChange={value => set('cuisine', value)} />
         <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs">Overall rating</span><StarRating value={draft.rating} onChange={(value) => set('rating', value)} label="Overall rating" /></div>
         <DishEntryList dishes={draft.dishes} onChange={(value) => set('dishes', value)} />
         <div><label htmlFor="edit-review-notes" className="block text-xs">Your review</label><textarea id="edit-review-notes" value={draft.notes} onChange={(event) => set('notes', event.target.value)} maxLength={2000} rows={6} className="bg-notes mt-2 block w-full rounded-md p-3 text-sm" /></div>

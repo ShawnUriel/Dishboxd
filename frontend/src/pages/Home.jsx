@@ -4,7 +4,8 @@ import Button from '../components/atoms/Button.jsx'
 import Photo from '../components/atoms/Photo.jsx'
 import PersonCard from '../components/molecules/PersonCard.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
-import HomePaperNote from '../components/molecules/HomePaperNote.jsx'
+import HomeMemoryCollage from '../components/organisms/HomeMemoryCollage.jsx'
+import HomeFoodDesk from '../components/organisms/HomeFoodDesk.jsx'
 import HomeTrays from '../components/organisms/HomeTrays.jsx'
 import NotificationBell from '../components/organisms/NotificationBell.jsx'
 import FoodPassport from '../components/organisms/FoodPassport.jsx'
@@ -19,6 +20,7 @@ import { averageRating, newestFirst } from '../lib/stats.js'
 import { useJournal } from '../state/useJournal.js'
 import './Home.css'
 import './HomeKeepsakes.css'
+import './HomeScrapbook.css'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -116,7 +118,7 @@ export default function Home() {
     updateVisit(partial)
   }
   return (
-    <div className="page-enter">
+    <div className="page-enter home-scrapbook">
       <header className="relative z-30 mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-dashed border-line pb-5">
         <div>
           <h1 className="font-serif text-3xl font-bold tracking-tight">
@@ -143,7 +145,7 @@ export default function Home() {
         </div>
       </header>
       <section
-        className="paper-card home-welcome relative grid gap-9 p-6 sm:p-8 lg:grid-cols-[1fr_16rem] lg:gap-8"
+        className="paper-card home-welcome home-scrapbook-welcome relative grid gap-9 p-6 sm:p-8 lg:grid-cols-[1fr_22rem] lg:gap-8"
         aria-labelledby="welcome-title"
       >
         <span className="home-welcome-checks" aria-hidden="true" />
@@ -157,7 +159,7 @@ export default function Home() {
           >
             Good meals.
             <br />
-            <span className="text-brand">Better memories.</span>
+            <span className="home-scribble-title text-brand">Better memories.<svg viewBox="0 0 360 18" preserveAspectRatio="none" aria-hidden="true"><path d="M3 10Q165-3 352 8M39 15Q190 7 324 13" /></svg></span>
           </h2>
           <p className="mt-4 max-w-lg text-sm leading-7 text-muted">
             Welcome back, {name.split(' ')[0]}. A favourite dish, a little discovery, a table worth returning
@@ -178,7 +180,7 @@ export default function Home() {
             <span>Made to savour</span><span>✳</span><span>Filed with love</span>
           </div>
         </div>
-        <HomePaperNote />
+        <HomeMemoryCollage visits={visits} />
       </section>
       <div className="stagger my-6 grid grid-cols-3 gap-3 sm:gap-5">
         {[
@@ -197,6 +199,7 @@ export default function Home() {
           </div>
         ))}
       </div>
+      <HomeFoodDesk />
       <section className="home-specials mb-8" aria-labelledby="specials-title">
         <div className="home-specials-label">
           <span className="text-[9px] uppercase tracking-[0.18em] text-muted">Something to savour</span>

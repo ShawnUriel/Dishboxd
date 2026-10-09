@@ -54,4 +54,8 @@ test('passport earns one stamp per reviewed cuisine, handles aliases and updates
   assert.equal(collectPassport([], restaurants).filter(stamp => stamp.earned).length, 0)
   assert.equal(collectPassport([visits[0]], restaurants).find(stamp => stamp.earned).firstVisit.id, '1')
   assert.equal(collectPassport(visits, restaurants.map(place => ({ ...place, category: 'Thai cuisine' }))).find(stamp => stamp.earned).name, 'Thai')
+  const tagged = [{ ...visits[0], cuisine: 'Korean' }, { ...visits[1], cuisine: '' }, { ...visits[2], cuisine: 'Italian' }]
+  assert.deepEqual(collectPassport(tagged, restaurants).filter(stamp => stamp.earned).map(stamp => stamp.name), ['Korean', 'Italian'])
+  assert.equal(collectPassport([{ ...visits[0], cuisine: null }], restaurants).find(stamp => stamp.earned).name, 'Japanese')
+  assert.equal(collectPassport([{ ...visits[0], cuisine: 'Other' }], restaurants).filter(stamp => stamp.earned).length, 0)
 })

@@ -67,6 +67,35 @@ test('Google restaurant photos use fresh resources and safe public responses', a
     assert.equal(requests.length, 0)
   })
 
+  await t.test('cuisine lookup uses specific Google types, stays optional and protects the key', async () => {
+    const { cuisineFromTypes } = require('../cuisines')
+    assert.equal(cuisineFromTypes(['cafe', 'japanese_restaurant']), 'Japanese')
+    assert.equal(cuisineFromTypes(['korean_barbecue_restaurant', 'restaurant']), 'Korean')
+    assert.equal(cuisineFromTypes(['pizza_restaurant', 'hamburger_restaurant', 'food']), '')
+    assert.equal(cuisineFromTypes(['japanese_restaurant', 'korean_restaurant']), '')
+    assert.equal(cuisineFromTypes(['japanese_restaurant', 'korean_restaurant'], 'korean_restaurant'), 'Korean')
+    const lookup = async (id = PLACE_ID, authenticated = true) => {
+      const response = await realFetch(`${origin}/api/places/${id}/cuisine`, { headers: authenticated ? { Authorization: `cuisine-${++userNumber}` } : {} })
+      return { status: response.status, data: await response.json(), headers: response.headers }
+    }
+    upstream()
+    assert.equal((await lookup(PLACE_ID, false)).status, 401)
+    assert.equal((await lookup('bad!')).status, 400)
+    assert.equal(requests.length, 0)
+    upstream(json({ types: ['cafe', 'japanese_restaurant'], primaryType: 'cafe' }))
+    const result = await lookup()
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data, { cuisine: 'Japanese' })
+    assert.equal(requests[0].options.headers['X-Goog-FieldMask'], 'types,primaryType')
+    assertSanitized(result)
+    upstream(json({ types: ['restaurant', 'food'] }))
+    assert.deepEqual((await lookup()).data, { cuisine: '' })
+    upstream(json({ error: TEST_KEY }, 403))
+    const failed = await lookup()
+    assert.equal(failed.status, 502)
+    assertSanitized(failed)
+  })
+
   await t.test('returns a photo and all attributions with a fresh Details request', async () => {
     const details = { photos: [{ name: PHOTO_NAME, googleMapsUri: SOURCE_URL, authorAttributions: [
       { displayName: 'A restaurant guest', uri: '//maps.google.com/maps/contrib/101563' },

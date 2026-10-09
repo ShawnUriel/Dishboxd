@@ -7,6 +7,8 @@ import StarRating from '../components/atoms/StarRating.jsx'
 import TableSetting from '../components/atoms/TableSetting.jsx'
 import { FolderIcon } from '../components/atoms/Icon.jsx'
 import CategoryField from '../components/molecules/CategoryField.jsx'
+import CuisineField from '../components/molecules/CuisineField.jsx'
+import { useTicketCuisine } from '../lib/useTicketCuisine.js'
 import CoauthorPicker from '../components/molecules/CoauthorPicker.jsx'
 import RestaurantNameField from '../components/molecules/RestaurantNameField.jsx'
 import ReviewStickerComposer from '../components/molecules/ReviewStickerComposer.jsx'
@@ -71,6 +73,12 @@ export default function VisitForm() {
         // Editing the name after picking a Google place makes it a place added by hand
         placeId: googlePlace && name === googlePlace.name ? googlePlace.placeId : null,
       }
+  const cuisine = useTicketCuisine({
+    placeId: place.placeId,
+    placeKey: restaurantId || place.placeId || name.trim().toLowerCase(),
+    suggested: place.placeId && googlePlace?.placeId === place.placeId ? googlePlace.cuisine : '',
+    category: existing?.category || (!place.placeId ? category : ''),
+  })
   const suggestions = restaurantId
     ? dishSuggestions(visits.filter((v) => v.restaurantId === restaurantId))
     : []
@@ -105,18 +113,24 @@ export default function VisitForm() {
       return
     }
     setGooglePlace(found)
+    setRestaurantId('')
     setName(found.name)
     setAddress(found.address ?? '')
-    setCategory((current) => (!current || current === googlePlace?.category ? found.category || current : current))
+    setCategory(found.category || '')
   }
 
   // Log this visit under a place already in the journal (or, with null, a new one)
   function chooseSavedPlace(saved) {
     setRestaurantId(saved?.id ?? '')
+    setGooglePlace(null)
     if (saved) {
       setName(saved.name)
       setAddress(saved.address ?? '')
       setCategory(saved.category ?? '')
+    } else {
+      setName('')
+      setAddress('')
+      setCategory('')
     }
   }
 
@@ -180,7 +194,7 @@ export default function VisitForm() {
     event.preventDefault()
     setTriedSubmit(true)
     setSaveError('')
-    if (problem || saving || uploading || creatingBox || stickerBusy) return
+    if (problem || saving || uploading || creatingBox || stickerBusy || cuisine.loading) return
     setSaving(true)
     try {
       const savedId = await addVisit(place, {
@@ -191,6 +205,7 @@ export default function VisitForm() {
         photoIds,
         isPublic,
         category: category.trim(),
+        cuisine: cuisine.value.trim(),
         coauthorId: coauthor?.id ?? null,
         boxId: selectedBox?.id ?? null,
         stickers: reviewStickers.map(({ stickerId, x, y, rotation, scale }) => ({ stickerId, x, y, rotation, scale })),
@@ -312,7 +327,13 @@ export default function VisitForm() {
                   <div className="sm:col-span-2">
                     <RestaurantNameField
                       value={name}
-                      onChange={setName}
+                      onChange={value => {
+                        setName(value)
+                        if (googlePlace && value !== googlePlace.name) {
+                          setGooglePlace(null)
+                          setCategory('')
+                        }
+                      }}
                       restaurants={restaurants}
                       onPickGoogle={chooseGooglePlace}
                       onPickSaved={chooseSavedPlace}
@@ -345,6 +366,7 @@ export default function VisitForm() {
                 />
               </div>
             </div>
+            <CuisineField value={cuisine.value} onChange={cuisine.onChange} hint={cuisine.hint} disabled={saving} />
             <div className="flex flex-wrap items-center justify-between gap-3 border-y border-dashed border-line py-4">
               <span className="text-xs uppercase tracking-wider text-muted">Overall rating</span>
               <StarRating value={rating} onChange={setRating} label="Overall rating" />
@@ -489,8 +511,8 @@ export default function VisitForm() {
             <Button variant="secondary" onClick={() => navigate('/')} disabled={saving || creatingBox || stickerBusy}>
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={saving || uploading || creatingBox || stickerBusy}>
-              {saving ? 'Stamping…' : 'Stamp & submit'}
+            <Button type="submit" className="flex-1" disabled={saving || uploading || creatingBox || stickerBusy || cuisine.loading}>
+              {saving ? 'Stamping…' : cuisine.loading ? 'Checking cuisine…' : 'Stamp & submit'}
             </Button>
           </footer>
         </form>

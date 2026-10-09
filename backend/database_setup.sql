@@ -127,6 +127,10 @@ CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications (recipient_
 -- Each place has a category (Cafe, Matcha bar, Italian…). Free text, suggested by the app.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '' CHECK (length(category) <= 40);
 
+-- Cuisine belongs to a ticket: a fusion restaurant can earn different stamps on different visits.
+-- NULL preserves the category-based passport behaviour for older tickets; '' explicitly leaves it untagged.
+ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS cuisine TEXT CHECK (length(cuisine) <= 40);
+
 -- Every item on a ticket gets its own score out of 10, and its own note. A score can go
 -- past 10 (up to 12) for a dish that was that good; the app sets those on fire.
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS score SMALLINT CHECK (score BETWEEN 0 AND 12);

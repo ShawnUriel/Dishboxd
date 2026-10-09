@@ -65,7 +65,7 @@ const canSeeReview = (alias = 'v', viewer = '$1') => `(${alias}.user_id = ${view
 
 // Everything a review card shows. Use with FROM visit_logs v JOIN restaurants r, and the viewer as $1.
 // A pending co-author is shown only to the author and the person invited.
-const reviewColumns = `v.id, v.user_id, v.restaurant_id, v.visit_date, v.rating, v.notes, v.is_public, v.created_at, v.revision, v.edited_at,
+const reviewColumns = `v.id, v.user_id, v.restaurant_id, v.visit_date, v.rating, v.notes, v.cuisine, v.is_public, v.created_at, v.revision, v.edited_at,
   COALESCE((SELECT privacy.is_private FROM profiles privacy WHERE privacy.user_id = v.user_id), false) AS account_private,
   r.google_place_id,
   (SELECT count(*)::int FROM review_comments rc WHERE rc.visit_id = v.id AND rc.deleted_at IS NULL) AS comment_count,
@@ -100,6 +100,7 @@ function toReview(row) {
     date: row.visit_date,
     rating: row.rating,
     notes: row.notes,
+    cuisine: row.cuisine ?? null,
     isPublic: row.is_public,
     accountPrivate: row.account_private,
     dishes: row.dishes,

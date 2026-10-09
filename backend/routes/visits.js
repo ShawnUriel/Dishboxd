@@ -44,6 +44,7 @@ function readTicket(body) {
       }
     }),
     category: readCategory(body.category),
+    cuisine: body.cuisine == null ? null : text(body.cuisine, 'Cuisine', { max: 40 }).replace(/\s+/g, ' '),
   }
 
   if (body.isPublic !== undefined && typeof body.isPublic !== 'boolean')
@@ -165,10 +166,10 @@ router.post('/', async (req, res) => {
     }
 
     const { rows } = await client.query(
-      `INSERT INTO visit_logs (user_id, restaurant_id, visit_date, rating, notes, is_public)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO visit_logs (user_id, restaurant_id, visit_date, rating, notes, is_public, cuisine)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
-      [req.userId, restaurant.id, ticket.date, ticket.rating, ticket.notes, ticket.isPublic],
+      [req.userId, restaurant.id, ticket.date, ticket.rating, ticket.notes, ticket.isPublic, ticket.cuisine],
     )
     const visitId = rows[0].id
     const dishes = await client.query(
@@ -275,8 +276,8 @@ router.put('/:id', async (req, res) => {
         }
       }
     }
-    await client.query(`UPDATE visit_logs SET visit_date=$3, rating=$4, notes=$5, is_public=$6,
-      revision=revision+1, edited_at=now() WHERE id=$1 AND user_id=$2`, [req.params.id, req.userId, ticket.date, ticket.rating, ticket.notes, req.body.isPublic ?? owned.rows[0].is_public])
+    await client.query(`UPDATE visit_logs SET visit_date=$3, rating=$4, notes=$5, is_public=$6, cuisine=$7,
+      revision=revision+1, edited_at=now() WHERE id=$1 AND user_id=$2`, [req.params.id, req.userId, ticket.date, ticket.rating, ticket.notes, req.body.isPublic ?? owned.rows[0].is_public, Object.hasOwn(req.body, 'cuisine') ? ticket.cuisine : owned.rows[0].cuisine])
     return { review: await loadReview(req.userId, req.params.id, client) }
   })
   if (!result) return res.status(404).json({ error: 'Review not found.' })

@@ -48,7 +48,7 @@ export default function FoodPassport({ name }) {
           <div className="passport-pagination"><button type="button" disabled={spread === 0} onClick={() => setSpread(value => value - 1)} aria-label="Previous passport pages">← Previous</button><span role="status">Pages {spread * 2 + 1}–{spread * 2 + 2} of 4</span><button type="button" disabled={spread === 1} onClick={() => setSpread(value => value + 1)} aria-label="Next passport pages">Next →</button></div>
         </div>
       )}
-      <p className="keepsake-footnote">One cuisine, one stamp. Choose a cuisine in your restaurant’s category and save a review to collect it. Your existing reviews count, too.</p>
+      <p className="keepsake-footnote">One cuisine, one stamp. Google suggests a cuisine when available, or you can tag it on your ticket. Save a review to collect its stamp. Your existing reviews count, too.</p>
       <Link className="keepsake-link" to="/log/new">Where will your next bite take you? →</Link>
     </section>
   )

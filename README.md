@@ -367,14 +367,21 @@ Home's top-right bell, beside the profile, shows new followers and review repost
 
 The inbox API is authenticated and scoped to its recipient: `GET /api/notifications?before=<id>`, `PATCH /api/notifications/:id/read`, and `PATCH /api/notifications/read` with `{ "through": "<latest-fetched-id>" }`. Notification IDs are strings. Tests in `backend/test/notifications.test.js` cover deduplication, account isolation, saved read state, pagination, and repeatable schema upgrades.
 
-Home also has a gingham welcome-card detail, illustrated stat cards, a coffee doodle, and a **Today's specials** strip linking to review creation, restaurant search, and friends.
+Home has a scrapbook welcome card with illustrated food stickers, paper tape, a hand-drawn underline, and a polaroid linking to your latest meal (using its first photo when available). Cards lift gently on hover and bookmark picks animate on reveal; effects respect both system and in-app reduced-motion settings. The design adapts to light/dark themes and phone screens. **Today's specials** links to review creation, restaurant search, and friends.
+
+- **Pick my next bite:** shuffles your private want-to-try bookmarks without repeating the previous choice when multiple places are saved. A chosen place can prefill a new review; empty lists link to bookmarks.
+- **Your week in bites:** a receipt showing meals, dishes, first-time restaurants, and the highest-rated dish from Monday through today in your local timezone. These summaries come from your existing journal and need no new database tables.
 
 Home includes two personal keepsakes:
 
-- **Food passport:** a green book opens into four pages of illustrated cuisine stamps. Twelve cuisines are supported, including category aliases such as Ramen/Sushi for Japanese and Samgyupsal for Korean. A stamp requires a saved review of a restaurant in that cuisine; bookmarks and unreviewed restaurants do not count. The first visit date appears on the stamp and links to its review. Stamps reflect the current journal, including category changes and deleted reviews.
+- **Food passport:** a green book opens into four pages of illustrated cuisine stamps. Twelve cuisines are supported, including aliases such as Ramen/Sushi for Japanese and Samgyupsal for Korean. A stamp requires a saved review tagged with that cuisine; bookmarks and unreviewed restaurants do not count. The first visit date appears on the stamp and links to its review. Stamps reflect ticket edits and deleted reviews. Older tickets without a cuisine field continue to use the restaurant category.
 - **Sticker corner:** a private canvas with up to twelve decorations from the existing sticker book or maker. Drag, tilt, resize and peel-off changes persist automatically. Keyboard controls are available. `GET /api/stickers/home` returns only the signed-in user's placements; placement writes use target type `home` with that user's ID. Home decorations do not make a sticker public.
 
 Before deploying this home update, run `npm run db:setup` against the deployment database. The additive migration adds `sticker_placements.home_id` and extends its target constraint, preserving existing decorations. Passport stamps are derived from saved reviews and need no separate storage. Home's sticker loading failure stays within the corner rather than blocking the journal.
+
+**Optional ticket cuisine:** new and edited reviews have a separate cuisine tag, leaving the restaurant category available for labels like Cafe or Seafood. Selecting a Google place uses its autocomplete cuisine when unambiguous; otherwise `GET /api/places/:placeId/cuisine` requests only `types,primaryType` from Google Place Details. Existing Google places and bookmarks are checked when opening a new ticket. Suggestions follow [Google's place types](https://developers.google.com/maps/documentation/places/web-service/place-types); generic venue types and ambiguous cuisine combinations remain unknown. A manual tag always takes priority, including clearing it. Lookup failures allow manual entry or an untagged review. Custom cuisines save even if the twelve-stamp passport does not support them yet.
+
+Run `npm run db:setup` before deploying the cuisine feature: it adds nullable `visit_logs.cuisine` (up to 40 characters). NULL preserves legacy category-derived stamps; an explicit empty string means the diner left the ticket untagged. Each visit retains its own cuisine, and editing a review without sending this field preserves the previous value. Google Details requests are authenticated, rate limited, and may incur normal Google Places charges; API keys stay on the backend. Existing reviews are not bulk-looked-up or retagged.
 
 ### Settings, appearance and private accounts
 

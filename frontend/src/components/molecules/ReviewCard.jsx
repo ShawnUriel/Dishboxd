@@ -125,6 +125,7 @@ export default function ReviewCard({
               {formatDate(review.date)}
               {review.editedAt && <span className="text-[9px] normal-case">Edited</span>}
               <CategoryTag category={restaurant?.category} />
+              {review.cuisine && review.cuisine !== restaurant?.category && <CategoryTag category={`${review.cuisine} cuisine`} />}
               {level > 0 && <span className="fire-stamp">On fire</span>}
             </p>
             {!preview && own && restaurant ? (

@@ -1,6 +1,7 @@
 const express = require('express')
 const { text } = require('../validate')
 const { perUserLimit } = require('../rateLimit')
+const { cuisineFromTypes } = require('../cuisines')
 
 const router = express.Router()
 
@@ -163,10 +164,25 @@ router.get('/autocomplete', searchLimit, async (req, res) => {
       name: prediction.structuredFormat?.mainText?.text ?? prediction.text?.text ?? '',
       address: prediction.structuredFormat?.secondaryText?.text ?? '',
       category: categoryFromTypes(prediction.types),
+      cuisine: cuisineFromTypes(prediction.types),
     }))
     .filter((place) => place.name)
 
   res.json({ places })
+})
+
+// Fetch only the cuisine-related fields for the selected place, never every search result.
+router.get('/:placeId/cuisine', searchLimit, async (req, res) => {
+  res.set('Cache-Control', 'private, no-store')
+  const { placeId } = req.params
+  if (!PLACE_ID.test(placeId)) return res.status(400).json({ error: 'The restaurant ID is not valid.' })
+  if (!isConfigured) return res.status(503).json({ error: 'Google cuisine suggestions are not set up yet.' })
+  try {
+    const details = await googlePhotoJson(`https://places.googleapis.com/v1/places/${placeId}`, 'types,primaryType')
+    return res.json({ cuisine: cuisineFromTypes(details.types, details.primaryType) })
+  } catch {
+    return res.status(502).json({ error: 'Google could not check the cuisine. Choose a tag or leave it blank.' })
+  }
 })
 
 // The server mount requires authentication. Photo resource names are ephemeral and
