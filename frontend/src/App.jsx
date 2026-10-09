@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { GuestOnly, RequireAuth } from './components/organisms/AuthGate.jsx'
 import Navbar from './components/organisms/Navbar.jsx'
+import InviteBanner from './components/organisms/InviteBanner.jsx'
 import PageTransition from './components/organisms/PageTransition.jsx'
 import Home from './pages/Home.jsx'
 import Bookmarks from './pages/Bookmarks.jsx'
@@ -44,6 +45,7 @@ function JournalLayout() {
         <Navbar />
         <main id="main" className="bg-lined min-h-screen min-w-0 flex-1 pb-24 md:pb-0">
           <div className="mx-auto max-w-[82rem] px-4 pt-6 pb-12 sm:px-8 md:px-10 md:pt-9 lg:px-12">
+            <InviteBanner />
             <PageTransition>
               <Outlet />
             </PageTransition>
@@ -81,6 +83,7 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:id" element={<Profile />} />
             <Route path="/friends" element={<Friends />} />
+            <Route path="/friends/:id" element={<Profile />} />
             <Route path="/people" element={<Navigate to="/friends?tab=find" replace />} />
             <Route path="/review/:id" element={<ReviewPage />} />
             <Route path="/review/:id/edit" element={<EditReview />} />

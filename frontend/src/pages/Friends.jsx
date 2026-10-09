@@ -27,7 +27,7 @@ export default function Friends() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
-  const [query, setQuery] = useState('')
+  const query = (params.get('q') ?? '').slice(0, 60)
 
   useEffect(() => {
     let active = true
@@ -152,7 +152,7 @@ export default function Friends() {
         className="paper-card mb-4 p-5 sm:p-6"
         onSubmit={(event) => {
           event.preventDefault()
-          setParams({ tab: 'find' }, { replace: true })
+          setParams({ tab: 'find', ...(query ? { q: query } : {}) }, { replace: true })
         }}
       >
         <label htmlFor="people-search" className="text-xs font-semibold uppercase tracking-wider text-ink">
@@ -170,8 +170,8 @@ export default function Friends() {
               value={query}
               maxLength={60}
               onChange={(event) => {
-                setQuery(event.target.value)
-                setParams({ tab: 'find' }, { replace: true })
+                const value = event.target.value
+                setParams({ tab: 'find', ...(value ? { q: value } : {}) }, { replace: true })
               }}
             />
           </div>
@@ -189,7 +189,6 @@ export default function Friends() {
             type="button"
             aria-current={tab === value ? 'page' : undefined}
             onClick={() => {
-              setQuery('')
               setParams(value === 'friends' ? {} : { tab: value }, { replace: true })
             }}
             className={`shrink-0 rounded-md px-3 py-2 text-xs transition-colors ${tab === value ? 'bg-ink text-paper' : 'text-muted hover:bg-sidebar/50'}`}

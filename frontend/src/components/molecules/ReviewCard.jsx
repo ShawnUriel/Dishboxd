@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import CategoryTag from '../atoms/CategoryTag.jsx'
 import Flames from '../atoms/Flames.jsx'
-import { StickerIcon } from '../atoms/Icon.jsx'
+import { CommentIcon, StickerIcon } from '../atoms/Icon.jsx'
+import PrivateBadge from '../atoms/PrivateBadge.jsx'
 import Photo from '../atoms/Photo.jsx'
 import ScoreBadge from '../atoms/ScoreBadge.jsx'
 import StickerImage from '../atoms/StickerImage.jsx'
 import CoauthorControls from './CoauthorControls.jsx'
 import ReviewActions from './ReviewActions.jsx'
 import BookmarkButton from './BookmarkButton.jsx'
+import ReviewPhotos from './ReviewPhotos.jsx'
 import StickerLayer from './StickerLayer.jsx'
 import StickerTray from './StickerTray.jsx'
 import { formatDate, formatMoney } from '../../lib/format.js'
@@ -31,8 +33,10 @@ export default function ReviewCard({
   onShare,
   onChange,
   preview = false,
+  expanded = false,
   stickerEditor,
 }) {
+  const navigate = useNavigate()
   const { settings } = useSettings()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -67,8 +71,11 @@ export default function ReviewCard({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[40rem]">
-      <article className={`paper-card relative isolate mx-auto w-full max-w-[40rem] p-4 sm:p-5 ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
+    <div className={`mx-auto w-full ${expanded ? '' : 'max-w-[40rem]'}`}>
+      <article onClick={(event) => {
+        if (preview || expanded || editingStickers || event.defaultPrevented || event.target.closest('a, button, input, textarea, select, dialog, [role="button"]') || window.getSelection()?.toString()) return
+        navigate(`/review/${review.id}`)
+      }} className={`paper-card relative isolate mx-auto w-full p-4 sm:p-5 ${!preview && !expanded ? 'cursor-pointer' : ''} ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
         {!preview && (review.reposted || named.length > 0) && (
           <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
             ↻{' '}
@@ -116,6 +123,7 @@ export default function ReviewCard({
                 @{review.author?.handle}
                 {coauthor && ` · a co-review with @${coauthor.handle}`}
               </span>
+              {review.accountPrivate && <span className="mt-2 block"><PrivateBadge /></span>}
             </p>
           </div>
         )}
@@ -185,25 +193,13 @@ export default function ReviewCard({
         {review.notes && (
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{review.notes}</p>
         )}
-        {review.photoIds?.length > 0 && (
-          <div
-            className={`mt-4 grid gap-2 ${review.photoIds.length === 1 ? 'grid-cols-1' : review.photoIds.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}
-          >
-            {review.photoIds.map((id, index) => (
-              <Photo
-                key={id}
-                id={id}
-                alt={`${restaurant?.name || 'Dining experience'}, photo ${index + 1}`}
-                className={`w-full rounded-md ${review.photoIds.length === 1 ? 'aspect-[16/10] max-h-80' : 'aspect-square max-h-44'}`}
-              />
-            ))}
-          </div>
-        )}
+        {review.photoIds?.length > 0 && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} expanded={expanded} />}
 
         {!preview && (
           <div className="mt-4 space-y-3 border-t border-dashed border-line pt-3">
             <div className="flex flex-wrap items-center gap-3">
-              <Link to={`/review/${review.id}#comments`} className="text-xs text-accent underline">Comments ({review.commentCount ?? 0})</Link>
+              {!expanded && <Link to={`/review/${review.id}`} className="text-xs font-semibold text-accent underline">View full review</Link>}
+              <Link to={`/review/${review.id}#comments`} className="inline-flex items-center gap-1.5 text-xs text-accent underline"><CommentIcon />Comments ({review.commentCount ?? 0})</Link>
               {isAuthor && <Link to={`/review/${review.id}/edit`} className="text-xs text-accent underline">Edit review</Link>}
               {isAuthor && <Link to={`/review/${review.id}`} className="text-xs text-muted underline">Manage review</Link>}
               {restaurant && <BookmarkButton place={restaurant} restaurantId={restaurant.id} />}

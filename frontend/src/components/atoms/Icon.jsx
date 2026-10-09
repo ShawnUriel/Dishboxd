@@ -35,6 +35,14 @@ export function BellIcon() {
   )
 }
 
+export function CommentIcon() {
+  return <Svg><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-3 2V11.5a10 10 0 0 1 20 0Z" /><path d="M7 9h8M7 13h5" /></Svg>
+}
+
+export function LockIcon() {
+  return <Svg><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3" /></Svg>
+}
+
 export function SearchIcon() {
   return (
     <Svg>

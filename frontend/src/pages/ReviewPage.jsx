@@ -55,7 +55,7 @@ function ReviewContent({ id }) {
   }
 
   return (
-    <div className="page-enter mx-auto max-w-2xl">
+    <div className="page-enter mx-auto max-w-5xl">
       <button
         type="button"
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
@@ -66,6 +66,7 @@ function ReviewContent({ id }) {
       {review ? (
         <>
         <ReviewCard
+          expanded
           review={review}
           own={own}
           showAuthor

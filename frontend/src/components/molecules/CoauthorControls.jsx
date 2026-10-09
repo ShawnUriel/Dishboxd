@@ -18,6 +18,7 @@ export default function CoauthorControls({ review, own, currentUserId, onChange 
     try {
       const result = await request()
       onChange?.(after(result))
+      window.dispatchEvent(new Event('coauthor-changed'))
       setChoosing(false)
     } catch (failure) {
       setError(failure.message)

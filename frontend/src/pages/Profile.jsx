@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import Button from '../components/atoms/Button.jsx'
 import CategoryTag from '../components/atoms/CategoryTag.jsx'
 import { StickerIcon } from '../components/atoms/Icon.jsx'
 import Photo from '../components/atoms/Photo.jsx'
+import PrivateBadge from '../components/atoms/PrivateBadge.jsx'
 import TextField from '../components/atoms/TextField.jsx'
 import PersonCard from '../components/molecules/PersonCard.jsx'
 import ReviewCard from '../components/molecules/ReviewCard.jsx'
@@ -20,7 +21,30 @@ import { useJournal } from '../state/useJournal.js'
 
 export default function Profile() {
   const { id } = useParams()
-  return <ProfileContent key={id || 'me'} id={id} />
+  const location = useLocation()
+  const { data: session } = authClient.useSession()
+  if (id && id === session?.user.id) return <Navigate to="/profile" replace />
+  // Keep existing profile links working while other diners belong to Friends.
+  if (id && location.pathname.startsWith('/profile/')) {
+    return <Navigate to={`/friends/${id}`} state={location.state} replace />
+  }
+  const returnTo = location.state?.friendsReturnTo
+  const friendsReturnTo = typeof returnTo === 'string' && (returnTo === '/friends' || returnTo.startsWith('/friends?'))
+    ? returnTo
+    : '/friends'
+  return (
+    <>
+      {id && (
+        <div className="mx-auto mb-6 flex max-w-6xl flex-wrap items-center justify-between gap-3">
+          <Link to={friendsReturnTo} className="text-sm text-accent underline underline-offset-4">
+            ← Back to friends
+          </Link>
+          <span className="text-xs uppercase tracking-[0.18em] text-muted">Friends / Profile card</span>
+        </div>
+      )}
+      <ProfileContent key={id || 'me'} id={id} />
+    </>
+  )
 }
 
 const SECTIONS = [
@@ -236,14 +260,14 @@ function ProfileContent({ id }) {
 
   return (
     <div className="page-enter mx-auto max-w-6xl">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      {own && <div className="mb-6 flex items-center justify-between gap-4">
         <span className="text-xs uppercase tracking-[0.18em] text-muted">
           The diner directory / Profile card
         </span>
         <Link to="/friends" className="shrink-0 text-xs text-accent underline underline-offset-4">
           Your friends ↗
         </Link>
-      </div>
+      </div>}
       <ProfileHeader
         key={profile.id}
         profile={profile}
@@ -551,6 +575,7 @@ function ProfileHeader({ profile, stickers: initialStickers, own, busy, onUpload
             <h1 className="mt-3 break-words font-serif text-4xl font-bold tracking-tight sm:text-5xl">
               {profile.name}
             </h1>
+            {profile.isPrivate && <div className="mt-3"><PrivateBadge /></div>}
             <p className="mt-2 break-all text-sm text-muted">
               @{profile.handle}
               {!own && profile.isFriend && (

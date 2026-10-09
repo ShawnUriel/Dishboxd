@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BellIcon, RepostIcon, UserIcon } from '../atoms/Icon.jsx'
+import { BellIcon, CommentIcon, RepostIcon, UserIcon, UsersIcon } from '../atoms/Icon.jsx'
 import Photo from '../atoms/Photo.jsx'
 import { api } from '../../lib/api.js'
 import './notifications.css'
@@ -35,11 +35,13 @@ export default function NotificationBell() {
     }
     const timer = window.setInterval(refreshVisible, 30000)
     window.addEventListener('focus', refreshVisible)
+    window.addEventListener('coauthor-changed', refreshVisible)
     document.addEventListener('visibilitychange', refreshVisible)
     return () => {
       mounted.current = false
       clearInterval(timer)
       window.removeEventListener('focus', refreshVisible)
+      window.removeEventListener('coauthor-changed', refreshVisible)
       document.removeEventListener('visibilitychange', refreshVisible)
       request.current?.abort()
     }
@@ -168,10 +170,10 @@ export default function NotificationBell() {
                   <button type="button" disabled={busy} onClick={() => read(item)} className={`notification-item ${item.readAt ? '' : 'notification-item-unread'}`}>
                     <span className="relative shrink-0">
                       <Photo id={item.actor.avatarId} alt="" fallback={item.actor.name.slice(0, 1)} className="size-10 rounded-full" />
-                      <span className="notification-kind">{item.kind === 'follow' ? <UserIcon /> : <RepostIcon />}</span>
+                      <span className="notification-kind">{item.kind === 'follow' ? <UserIcon /> : item.kind === 'coauthor_invite' ? <UsersIcon /> : ['comment', 'reply'].includes(item.kind) ? <CommentIcon /> : <RepostIcon />}</span>
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-xs leading-5"><strong>{item.actor.name}</strong>{item.kind === 'follow' ? ' started following you.' : item.kind === 'reply' ? ' replied to your comment.' : <>{item.kind === 'comment' ? ' commented on' : ' reposted'} your review{item.restaurantName ? <> of <strong>{item.restaurantName}</strong></> : ''}.</>}</span>
+                      <span className="block text-xs leading-5"><strong>{item.actor.name}</strong>{item.kind === 'follow' ? ' started following you.' : item.kind === 'reply' ? ' replied to your comment.' : item.kind === 'coauthor_invite' ? <> invited you to co-author a review{item.restaurantName ? <> of <strong>{item.restaurantName}</strong></> : ''}.</> : <>{item.kind === 'comment' ? ' commented on' : ' reposted'} your review{item.restaurantName ? <> of <strong>{item.restaurantName}</strong></> : ''}.</>}</span>
                       <time className="mt-1 block text-[10px] text-muted" dateTime={item.createdAt}>{timestamp(item.createdAt)}</time>
                     </span>
                     {!item.readAt && <span className="notification-dot"><span className="sr-only">Unread</span></span>}
@@ -181,7 +183,7 @@ export default function NotificationBell() {
             ) : !error && <div className="px-7 py-9 text-center">
               <span className="mx-auto mb-4 grid size-12 place-items-center rounded-full bg-badge text-brand"><BellIcon /></span>
               <p className="font-serif text-xl">A seat for every update.</p>
-              <p className="mt-2 text-xs leading-6 text-muted">Follows, reposts and conversations from your food people will appear here.</p>
+              <p className="mt-2 text-xs leading-6 text-muted">Invitations, follows, reposts and conversations from your food people will appear here.</p>
             </div>}
             {cursor && <button type="button" disabled={busy} className="w-full border-t border-line p-4 text-xs text-accent underline disabled:opacity-50" onClick={() => action(async () => {
               const data = await api(`/api/notifications?before=${encodeURIComponent(cursor)}`)

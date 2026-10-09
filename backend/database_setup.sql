@@ -81,9 +81,12 @@ CREATE TABLE IF NOT EXISTS media (
   user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
   visit_id UUID REFERENCES visit_logs(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK (kind IN ('avatar', 'review')),
-  data BYTEA NOT NULL CHECK (octet_length(data) BETWEEN 4 AND 750000),
+  data BYTEA NOT NULL CHECK (octet_length(data) BETWEEN 4 AND 4000000),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Raise the stored-photo cap on existing installations as well as fresh schemas.
+ALTER TABLE media DROP CONSTRAINT IF EXISTS media_data_check;
+ALTER TABLE media ADD CONSTRAINT media_data_check CHECK (octet_length(data) BETWEEN 4 AND 4000000);
 CREATE TABLE IF NOT EXISTS profiles (
   user_id UUID PRIMARY KEY REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
   handle TEXT NOT NULL UNIQUE CHECK (handle ~ '^[a-z0-9_]{3,30}$'),
@@ -266,12 +269,45 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   digest_since TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
-ALTER TABLE notifications ADD CONSTRAINT notifications_kind_check CHECK (kind IN ('follow', 'repost', 'comment', 'reply'));
+ALTER TABLE notifications ADD CONSTRAINT notifications_kind_check CHECK (kind IN ('follow', 'repost', 'comment', 'reply', 'coauthor_invite'));
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_check1;
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_target_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_target_check
   CHECK ((kind = 'follow' AND visit_id IS NULL) OR (kind <> 'follow' AND visit_id IS NOT NULL));
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS comment_id BIGINT REFERENCES review_comments(id) ON DELETE CASCADE;
+
+-- Invitations created with a review or added later use the same transactional alert.
+-- Repeating a pending invite does not reset its read state or create duplicates.
+CREATE OR REPLACE FUNCTION sync_coauthor_notification() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    DELETE FROM notifications WHERE visit_id = OLD.visit_id AND kind = 'coauthor_invite';
+    RETURN OLD;
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.user_id = OLD.user_id AND NEW.status = OLD.status THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  DELETE FROM notifications WHERE visit_id = NEW.visit_id AND kind = 'coauthor_invite';
+  IF NEW.status = 'pending' THEN
+    INSERT INTO notifications (recipient_id, actor_id, kind, visit_id)
+      SELECT NEW.user_id, v.user_id, 'coauthor_invite', v.id
+      FROM visit_logs v WHERE v.id = NEW.visit_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS coauthor_notification ON visit_coauthors;
+CREATE TRIGGER coauthor_notification AFTER INSERT OR UPDATE OR DELETE ON visit_coauthors
+  FOR EACH ROW EXECUTE FUNCTION sync_coauthor_notification();
+
+-- Existing unanswered invitations should also appear in the inbox after upgrading.
+INSERT INTO notifications (recipient_id, actor_id, kind, visit_id)
+  SELECT c.user_id, v.user_id, 'coauthor_invite', v.id
+  FROM visit_coauthors c JOIN visit_logs v ON v.id = c.visit_id
+  WHERE c.status = 'pending' AND NOT EXISTS (
+    SELECT 1 FROM notifications n WHERE n.visit_id = v.id AND n.kind = 'coauthor_invite');
 
 -- A private home canvas, independent of stickers on the public profile.
 ALTER TABLE sticker_placements ADD COLUMN IF NOT EXISTS home_id UUID REFERENCES neon_auth."user"(id) ON DELETE CASCADE;

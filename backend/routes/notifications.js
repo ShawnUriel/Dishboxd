@@ -5,7 +5,9 @@ const { ensureProfile, canSeeReview } = require('../social')
 
 const router = express.Router()
 const visible = `(n.kind = 'follow' OR EXISTS (
-  SELECT 1 FROM visit_logs v WHERE v.id = n.visit_id AND ${canSeeReview()}))`
+  SELECT 1 FROM visit_logs v WHERE v.id = n.visit_id AND ${canSeeReview()}))
+  AND (n.kind <> 'coauthor_invite' OR EXISTS (
+    SELECT 1 FROM visit_coauthors c WHERE c.visit_id = n.visit_id AND c.user_id = $1 AND c.status = 'pending'))`
 
 router.get('/preferences', async (req, res) => {
   await ensureProfile(req.userId)

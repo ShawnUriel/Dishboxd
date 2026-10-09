@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '../atoms/Button.jsx'
+import { CommentIcon } from '../atoms/Icon.jsx'
 import { api } from '../../lib/api.js'
 
 export default function ReviewComments({ review, currentUserId, onCountChange }) {
@@ -73,8 +74,8 @@ export default function ReviewComments({ review, currentUserId, onCountChange })
       <form onSubmit={submit} className="mt-6">
         {reply && <p className="mb-3 text-xs text-accent">Replying to {reply.author.name} <button type="button" className="ml-3 underline" onClick={() => setReply(null)}>Cancel reply</button></p>}
         <label htmlFor="comment-body" className="text-xs">{reply ? 'Your reply' : 'Your comment'}</label>
-        <textarea ref={input} id="comment-body" required maxLength={1000} rows={3} value={body} disabled={busy} onChange={(event) => setBody(event.target.value)} className="bg-notes mt-2 block w-full rounded-md p-3 text-sm" />
-        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-[10px] text-muted">{body.length}/1000</span><Button type="submit" size="sm" disabled={busy || !body.trim()}>{busy ? 'Saving…' : reply ? 'Post reply' : 'Post comment'}</Button></div>
+        <textarea ref={input} id="comment-body" required maxLength={1000} rows={3} value={body} disabled={busy} onChange={(event) => setBody(event.target.value)} className="mt-2 block w-full resize-y rounded-md border border-line bg-paper p-3 text-sm leading-6 text-ink" />
+        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-[10px] text-muted">{body.length}/1000</span><Button type="submit" size="sm" className="inline-flex items-center gap-2" disabled={busy || !body.trim()}><CommentIcon />{busy ? 'Saving…' : reply ? 'Post reply' : 'Post comment'}</Button></div>
       </form>
     </>}
   </section>

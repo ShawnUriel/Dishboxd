@@ -9,7 +9,7 @@ const uploadLimit = perUserLimit({
   windowMs: 600000,
   message: 'Too many photo uploads. Try again in a few minutes.',
 })
-const parseImage = express.raw({ type: 'image/jpeg', limit: 750000 })
+const parseImage = express.raw({ type: 'image/jpeg', limit: 4000000 })
 
 function checkImage(body) {
   if (

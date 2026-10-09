@@ -2,6 +2,8 @@
 
 [![Made with AI](https://img.shields.io/badge/Made_with-AI_assistance-blue)](AI-USAGE.md)
 
+**Live site: <https://dishboxd.vercel.app>.** Sign up with an email address or Google; there is nothing to install.
+
 Built with heavy help from **Claude Code**, which wrote most of the original app, and **Codex**, which implemented profiles, following, photos and the Home/Tray improvements. What they did, where they went wrong and which parts are mine are in [`AI-USAGE.md`](AI-USAGE.md).
 
 ## 1. Overview
@@ -11,6 +13,8 @@ Dishboxd is a Letterboxd-style food and dining journal. Remember where you ate, 
 **Current stage: working journal, item-by-item reviews and a social layer.** Accounts use [Neon Auth](https://neon.com/docs/neon-auth), with verified email or Google sign-in. Entries, uploaded photos, stickers, profiles, follows, likes, reposts and co-reviews persist through Express into Neon Postgres. Every item on a ticket gets its own score out of 10 (past 10 sets the review on fire), restaurants are sorted into categories, prices are in Philippine pesos, and the ticket is filled in on a plate at a dining table. Home combines your journal with Following and Discover feeds, restaurant suggestions and the existing paper/index-card design. Google restaurant search is optional; a new entry can also be filled in directly.
 
 ## 2. Setup and installation
+
+To use Dishboxd, you do not need any of this: open <https://dishboxd.vercel.app> (see [section 3](#3-how-to-run-it)). This section is only for running your own copy to work on the code.
 
 ### Install first
 
@@ -132,7 +136,22 @@ There is no seed data: the app and the database both start empty.
 
 ## 3. How to run it
 
-Start the backend and the frontend in **two separate terminals**. The app saves everything through the backend, so both must be running.
+Dishboxd runs on Vercel. **Open <https://dishboxd.vercel.app>** in a browser on a computer or phone; there is nothing to install or start.
+
+1. Choose **Sign up** and enter your name, email and a password. Dishboxd emails you a code; enter it to confirm the address and sign in. Or choose **Continue with Google**.
+2. Next time, log in with the same email and password, or with Google.
+
+**What you should see:** a ticket-style login card on ruled notebook paper. After signing in, **The Log** has a welcome card, journal statistics, recent reviews and suggestions, with `HOME`, `SEARCH`, `COLLECTIONS`, `FRIENDS`, `PROFILE` and `SETTINGS` tabs. A new journal starts empty and offers **NEW REVIEW**. On a phone the tabs become a bottom bar. Cards use subtle entrance and hover animations, with reduced-motion preferences respected.
+
+To check that the site's API is up, open <https://dishboxd.vercel.app/api/test>. You should see:
+
+```json
+{"message":"Dishboxd backend is working!"}
+```
+
+### Running it locally (for development)
+
+Only needed to work on the code; it uses the setup from section 2. Start the backend and the frontend in **two separate terminals**. The app saves everything through the backend, so both must be running.
 
 **Terminal 1 — backend**
 
@@ -160,15 +179,13 @@ cd frontend
 npm run dev
 ```
 
-Vite prints a local address, usually <http://localhost:5173>. Open it in your browser.
-
-**What you should see:** a ticket-style login card on ruled notebook paper. After signing in, **The Log** has a welcome card, journal statistics, recent reviews and suggestions, with `HOME`, `SEARCH`, `COLLECTIONS`, `FRIENDS` and `PROFILE` tabs. A new journal starts empty and offers **NEW ENTRY**. On a phone the tabs become a bottom bar. Cards use subtle entrance and hover animations, with reduced-motion preferences respected.
+Vite prints a local address, usually <http://localhost:5173>. Open it in your browser; it looks and works like the live site.
 
 To stop either server, press `Ctrl + C` in its terminal.
 
 ### Deploying to Vercel
 
-Dishboxd deploys as **one Vercel project with two services**, set up in the root `vercel.json`. The `frontend` service serves the React app and the `backend` service runs the Express API. They share one address: every path under `/api/` goes to the backend and every other path goes to the frontend, so the browser calls the API on the same site.
+Dishboxd deploys as **one Vercel project with two services**, set up in the root `vercel.json`. The `frontend` service serves the React app and the `backend` service runs the Express API. They share one address: every path under `/api/` goes to the backend and every other path goes to the frontend, so the browser calls the API on the same site. The live site, <https://dishboxd.vercel.app>, runs this way.
 
 1. In Vercel, choose **Add New → Project** and import the repository. Leave the Root Directory as the repository root; Vercel reads `vercel.json`.
 2. Add the environment variables, which both services share: `DATABASE_URL`, `NEON_AUTH_URL`, `GOOGLE_PLACES_API_KEY`, `GOOGLE_PLACES_REGION`, `VITE_NEON_AUTH_URL`, and `CLIENT_ORIGIN` set to the site's address. Do not set `VITE_API_URL`: production builds call `/api` on the same site.
@@ -234,7 +251,7 @@ On a shared review, **♥** likes it (once per diner) and **↻** reposts it to 
 
 ### Photo uploads
 
-The uploader accepts JPEG, PNG and WebP files up to 12 MB, resizes them and converts them into JPEGs below the server's 750 KB limit. Review photos are limited to three per entry and accounts to 30 MB of stored photos. Avatars are resized separately; uploading a replacement removes the old avatar. Photos are stored in Postgres for this course project, so no separate storage account is needed. Private and unfinished review uploads are readable only by their owner; shared review photos and avatars require a signed-in viewer. Unattached uploads older than a day are cleaned up on the next upload.
+The uploader accepts JPEG, PNG and WebP files up to 12 MB. Review photos retain their pixel dimensions and are re-encoded at high JPEG quality with metadata removed, below 3.5 MB (the server and database allow 4 MB). Photos that cannot fit that limit at high quality are rejected rather than heavily compressed. Avatars are resized separately. Review photos are limited to three per entry and accounts to 30 MB of stored photos; uploading a replacement avatar removes the old avatar. Photos are stored in Postgres for this course project, so no separate storage account is needed. Private and unfinished review uploads are readable only by their owner; shared review photos and avatars require a signed-in viewer. Unattached uploads older than a day are cleaned up on the next upload. Review cards open a wider full-review page, and selecting a photo opens a viewer with fit-to-screen and actual-size modes. Previously compressed uploads cannot recover their original detail.
 
 ### Pages
 
@@ -325,7 +342,7 @@ Every route except `/api/test` needs a login: send the Neon Auth token as `Autho
 | `401` | No login token, or an expired or tampered one |
 | `404` | The restaurant, box, sticker or review does not exist **or belongs to someone else / is private** (the API never reveals which), or an unknown path |
 | `409` | A profile username is already taken, or a review already has an accepted co-author |
-| `413` | JSON body over 64 KB, a JPEG upload over 750 KB or a sticker over 400 KB |
+| `413` | JSON body over 64 KB, a JPEG upload over 4 MB or a sticker over 400 KB |
 | `429` | More than 30 Google searches or photo lookups a minute, or 30 photo uploads in ten minutes. `Retry-After` says how long to wait. |
 | `500` | Anything unexpected. Details are logged in the backend terminal only, never sent to the browser. |
 | `502` | Google did not answer or returned an error (Google's message is logged in the backend terminal only) |
@@ -366,6 +383,8 @@ Notification preferences live at `/settings/notifications`, linked from the bell
 Home's top-right bell, beside the profile, shows new followers and review reposts. Alerts are saved to Postgres and refresh every 30 seconds while Home is visible, on window focus, and when the inbox opens. Opening an alert marks it read and takes you to the follower or review; **Mark all as read** acknowledges the fetched activity, leaving newer arrivals unread. Older notifications can be loaded inside the panel. Unfollowing or undoing a repost keeps the historical alert; retrying the same follow/repost request does not duplicate it. These are in-app notifications, not email or browser push.
 
 The inbox API is authenticated and scoped to its recipient: `GET /api/notifications?before=<id>`, `PATCH /api/notifications/:id/read`, and `PATCH /api/notifications/read` with `{ "through": "<latest-fetched-id>" }`. Notification IDs are strings. Tests in `backend/test/notifications.test.js` cover deduplication, account isolation, saved read state, pagination, and repeatable schema upgrades.
+
+Co-review invitations also create in-app notifications, whether sent with a new review or added later. A banner across journal pages links to pending invites and refreshes on navigation, focus, every 30 seconds, and after accepting or declining. Repeated sends do not duplicate notifications; replacement, cancellation, acceptance, or declining removes the old pending alert. The additive `npm run db:setup` migration raises the photo storage limit, installs the invitation notification trigger, and includes existing pending invites. `backend/test/invites.test.js` verifies the lifecycle and repeatable migration.
 
 Home has a scrapbook welcome card with illustrated food stickers, paper tape, a hand-drawn underline, and a polaroid linking to your latest meal (using its first photo when available). Cards lift gently on hover and bookmark picks animate on reveal; effects respect both system and in-app reduced-motion settings. The design adapts to light/dark themes and phone screens. **Today's specials** links to review creation, restaurant search, and friends.
 
@@ -438,7 +457,7 @@ Screenshots are kept in my private course workspace and embedded in `project/Doc
 
 ## 7. Known issues and next steps
 
-The app is deployed to Vercel. Accounts, journal forms, profiles, follows and photo uploads save to Neon Postgres.
+The app is live on Vercel at <https://dishboxd.vercel.app>. Accounts, journal forms, profiles, follows and photo uploads save to Neon Postgres.
 
 **Known issues**
 

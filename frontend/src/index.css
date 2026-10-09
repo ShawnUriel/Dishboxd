@@ -112,7 +112,7 @@
   border: 1px solid #2b282326; border-radius: 8px 8px 12px 12px; background: var(--color-box-orange);
   box-shadow: inset 0 3px 0 #ffffff40, 0 5px 0 #2b282312; font-size: 10px; letter-spacing: .15em;
 }
-@keyframes page-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes page-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
 /* Past 10: a card with an item scored 11 or 12 is on fire. Flat, illustrated flames burn
    along the bottom (behind the card's text), and the card casts a flickering red fire

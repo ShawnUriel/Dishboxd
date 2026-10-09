@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api.js'
 
-export default function Photo({ id, alt, className = '', fallback = 'Photo', ...props }) {
+export default function Photo({ id, alt, className = '', fallback = 'Photo', fit = 'cover', ...props }) {
   const [photo, setPhoto] = useState(null)
   useEffect(() => {
     if (!id) return
@@ -26,5 +26,5 @@ export default function Photo({ id, alt, className = '', fallback = 'Photo', ...
       </div>
     )
   }
-  return <img src={photo.url} alt={alt} loading="lazy" className={`object-cover ${className}`} {...props} />
+  return <img src={photo.url} alt={alt} loading="lazy" decoding="async" className={`${fit === 'contain' ? 'object-contain' : 'object-cover'} ${className}`} {...props} />
 }

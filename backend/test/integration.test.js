@@ -90,13 +90,19 @@ test('profiles, follows, review sharing and media boundaries against Postgres', 
       400,
     )
     assert.equal(
-      (await request(bea, '/api/media', { method: 'POST', raw: Buffer.alloc(750001) })).status,
+      (await request(bea, '/api/media', { method: 'POST', raw: Buffer.alloc(4000001) })).status,
       413,
     )
     const uploaded = await request(bea, '/api/media', { method: 'POST', raw: image })
     assert.equal(uploaded.status, 201)
     photo = uploaded.data.id
     assert.equal((await request(alex, `/api/media/${photo}`)).status, 404)
+    // Photos above the old 750 KB cap retain their stored bytes on retrieval.
+    const detailedImage = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.alloc(1000000, 127), Buffer.from([0xff, 0xd9])])
+    const detailed = await request(bea, '/api/media', { method: 'POST', raw: detailedImage })
+    assert.equal(detailed.status, 201)
+    assert.deepEqual((await request(bea, `/api/media/${detailed.data.id}`)).data, detailedImage)
+    assert.equal((await request(alex, `/api/media/${detailed.data.id}`)).status, 404)
   })
   await t.test('foreign photo attachments roll back the complete ticket', async () => {
     assert.equal(
