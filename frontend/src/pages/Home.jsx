@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import Button from '../components/atoms/Button.jsx'
 import Photo from '../components/atoms/Photo.jsx'
@@ -118,7 +119,14 @@ export default function Home() {
     updateVisit(partial)
   }
   return (
-    <div className="page-enter home-scrapbook">
+    <div className="page-enter home-scrapbook pb-20">
+      {createPortal(
+        <Link to="/log/new" className="home-new-review">
+          <PencilIcon />
+          <span>New review</span>
+        </Link>,
+        document.body,
+      )}
       <header className="relative z-30 mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-dashed border-line pb-5">
         <div>
           <h1 className="font-serif text-3xl font-bold tracking-tight">
@@ -166,12 +174,6 @@ export default function Home() {
             to. Give every review a home in your collection.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <Link
-              to="/log/new"
-              className="paper-lift rounded-md bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-wider text-white"
-            >
-              + New review
-            </Link>
             <Link to="/friends" className="text-xs text-accent underline underline-offset-4">
               Find your food people ↗
             </Link>

@@ -13,7 +13,7 @@ const TABS = [
   ['friends', 'Friends'],
   ['followBack', 'Follow back'],
   ['following', 'Following'],
-  ['find', 'Find diners'],
+  ['find', 'Find users'],
 ]
 
 // Your people: friends (you follow each other), diners to follow back, diners you follow,
@@ -27,6 +27,7 @@ export default function Friends() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     let active = true
@@ -45,9 +46,17 @@ export default function Friends() {
 
   // A follow or unfollow anywhere on the page moves the person to the right list
   function changed(person) {
-    setPeople((current) =>
-      current.some((p) => p.id === person.id) ? current.map((p) => (p.id === person.id ? person : p)) : [...current, person],
-    )
+    setPeople((current) => {
+      const people = current ?? []
+      return people.some((p) => p.id === person.id)
+        ? people.map((p) => (p.id === person.id ? person : p))
+        : [...people, person]
+    })
+    setNotice(person.isFriend
+      ? `You and ${person.name} are now friends.`
+      : person.isFollowing
+        ? `Added ${person.name}. You are following them; you become friends when they follow you back.`
+        : `You are no longer following ${person.name}.`)
   }
 
   function answered(partial) {
@@ -93,6 +102,22 @@ export default function Friends() {
           Your profile card →
         </Link>
       </header>
+
+      <section aria-label="Find and add users" className="paper-card mt-7 p-5 sm:p-6">
+        <TextField
+          id="people-search"
+          type="search"
+          label="Search users"
+          placeholder="Name or @username…"
+          hint="Search all diners and add someone to follow. You become friends when you follow each other."
+          value={query}
+          maxLength={60}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setParams({ tab: 'find' }, { replace: true })
+          }}
+        />
+      </section>
 
       <div className="my-7 grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-box-lavender/20 py-5">
         {[
@@ -143,7 +168,10 @@ export default function Friends() {
             key={value}
             type="button"
             aria-current={tab === value ? 'page' : undefined}
-            onClick={() => setParams(value === 'friends' ? {} : { tab: value }, { replace: true })}
+            onClick={() => {
+              setQuery('')
+              setParams(value === 'friends' ? {} : { tab: value }, { replace: true })
+            }}
             className={`shrink-0 rounded-md px-3 py-2 text-xs transition-colors ${tab === value ? 'bg-ink text-paper' : 'text-muted hover:bg-sidebar/50'}`}
           >
             {label}
@@ -154,7 +182,7 @@ export default function Friends() {
 
       <div className="mt-6">
         {tab === 'find' ? (
-          <FindDiners currentUserId={session?.user.id} onChange={changed} />
+          <FindDiners key={query} query={query} currentUserId={session?.user.id} onChange={changed} />
         ) : !people ? (
           !error && (
             <p role="status" className="text-sm text-muted">
@@ -189,19 +217,20 @@ export default function Friends() {
   )
 }
 
-function FindDiners({ currentUserId, onChange }) {
-  const [query, setQuery] = useState('')
+function FindDiners({ query, currentUserId, onChange }) {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
     const timer = setTimeout(() => {
       setLoading(true)
       setError('')
-      api(`/api/profiles?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      api(`/api/profiles?q=${encodeURIComponent(query.trim().replace(/^@/, ''))}`, { signal: controller.signal })
         .then((data) => {
+          if (controller.signal.aborted) return
           setResults(data.profiles)
           setLoading(false)
         })
@@ -216,7 +245,7 @@ function FindDiners({ currentUserId, onChange }) {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [query])
+  }, [query, attempt])
 
   function update(person) {
     setResults((current) => current.map((p) => (p.id === person.id ? person : p)))
@@ -225,32 +254,29 @@ function FindDiners({ currentUserId, onChange }) {
 
   return (
     <>
-      <TextField
-        id="people-search"
-        label="Search diners"
-        placeholder="Name or username…"
-        value={query}
-        maxLength={60}
-        onChange={(e) => setQuery(e.target.value)}
-        className="mb-8 max-w-lg"
-      />
+      <h2 className="mb-4 font-serif text-2xl font-semibold">{query.trim() ? 'Search results' : 'Discover diners'}</h2>
       {error && (
-        <p role="alert" className="mb-4 text-sm text-brand">
+        <div role="alert" className="mb-4 text-sm text-brand">
           {error}
-        </p>
+          <Button variant="secondary" size="sm" className="ml-3" onClick={() => {
+            setLoading(true)
+            setError('')
+            setAttempt((value) => value + 1)
+          }}>Retry search</Button>
+        </div>
       )}
       {loading ? (
         <p role="status" className="text-sm text-muted">
           Opening the guest book…
         </p>
-      ) : results.length ? (
+      ) : error ? null : results.length ? (
         <div className="stagger grid gap-4 md:grid-cols-2">
           {results.map((person) => (
-            <PersonCard key={person.id} person={person} currentUserId={currentUserId} onChange={update} />
+            <PersonCard key={person.id} person={person} currentUserId={currentUserId} onChange={update} followLabel="Add" />
           ))}
         </div>
       ) : (
-        <div className="paper-card p-8 text-sm text-muted">
+        <div role="status" className="paper-card p-8 text-sm text-muted">
           {query
             ? 'No diners match that name. Try another search.'
             : 'The guest book is just getting started. Other diners appear after opening their profile.'}

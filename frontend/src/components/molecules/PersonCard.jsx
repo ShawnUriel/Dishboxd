@@ -4,7 +4,7 @@ import Photo from '../atoms/Photo.jsx'
 import Button from '../atoms/Button.jsx'
 import { api } from '../../lib/api.js'
 
-export default function PersonCard({ person, currentUserId, onChange }) {
+export default function PersonCard({ person, currentUserId, onChange, followLabel = 'Follow' }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function follow() {
@@ -55,7 +55,7 @@ export default function PersonCard({ person, currentUserId, onChange }) {
             onClick={follow}
             aria-pressed={person.isFollowing}
           >
-            {busy ? '…' : person.isFollowing ? 'Following' : person.followsYou ? 'Follow back' : 'Follow'}
+            {busy ? '…' : person.isFollowing ? 'Following' : person.followsYou ? 'Follow back' : followLabel}
           </Button>
         )}
       </div>

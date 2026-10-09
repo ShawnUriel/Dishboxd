@@ -1,3 +1,40 @@
+.home-new-review {
+  position: fixed;
+  z-index: 30;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: calc(6rem + env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 56px;
+  padding: 0.9rem 1.4rem;
+  border: 1px solid var(--color-brand-dark);
+  border-radius: 999px;
+  background: var(--color-brand);
+  color: white;
+  box-shadow: 0 6px 22px #2b282330;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.home-new-review:hover {
+  background: var(--color-brand-dark);
+  box-shadow: 0 8px 26px #2b282345;
+}
+
+.home-new-review:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 4px;
+}
+
+@media (min-width: 768px) {
+  .home-new-review {
+    right: max(2rem, env(safe-area-inset-right));
+    bottom: calc(2rem + env(safe-area-inset-bottom));
+  }
+}
+
 .home-welcome {
   background: radial-gradient(ellipse at 85% 90%, #dbb98121, transparent 55%), linear-gradient(105deg, var(--color-card) 50%, #f1e7d363);
   border-top: 3px solid var(--color-brand);
