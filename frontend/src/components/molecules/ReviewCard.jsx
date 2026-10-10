@@ -59,7 +59,7 @@ export default function ReviewCard({
   const compact = !preview && !expanded
   // Without photos, a compact card has room for more of the ticket
   const hasPhotos = review.photoIds?.length > 0
-  const dishes = compact ? review.dishes.slice(0, hasPhotos ? 2 : 4) : review.dishes
+  const dishes = compact ? review.dishes.slice(0, hasPhotos ? 1 : 3) : review.dishes
   const moreDishes = review.dishes.length - dishes.length
   const canDecorate = expanded && isAuthor && !stickerEditor
   const displayedStickers = stickerEditor?.placements ?? stickers.placements
@@ -82,7 +82,7 @@ export default function ReviewCard({
       <article onClick={(event) => {
         if (preview || expanded || editingStickers || event.defaultPrevented || event.target.closest('a, button, input, textarea, select, dialog, [role="button"]') || window.getSelection()?.toString()) return
         navigate(`/review/${review.id}`)
-      }} className={`paper-card relative isolate mx-auto w-full p-4 sm:p-5 ${compact ? 'review-card-compact flex cursor-pointer flex-col' : ''} ${level > 0 ? 'on-fire' : ''} ${
+      }} className={`paper-card relative isolate mx-auto w-full ${compact ? 'review-card-compact flex cursor-pointer flex-col p-4' : 'p-4 sm:p-5'} ${level > 0 ? 'on-fire' : ''} ${
         compact ? '' : level > 1 ? 'pb-30 sm:pb-30' : level ? 'pb-24 sm:pb-24' : ''}`}>
         {!preview && (review.reposted || named.length > 0) && (
           <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
@@ -105,7 +105,7 @@ export default function ReviewCard({
           </p>
         )}
         {!preview && showAuthor && authors.length > 0 && (
-          <div className="mb-4 flex items-center gap-3">
+          <div className={`${compact ? 'mb-3' : 'mb-4'} flex items-center gap-3`}>
             <div className="flex -space-x-2">
               {authors.map((author) => (
                 <Link key={author.id} to={`/profile/${author.id}`} className="rounded-full ring-2 ring-card">
@@ -144,7 +144,7 @@ export default function ReviewCard({
               {level > 0 && <span className="fire-stamp">On fire</span>}
             </p>
             {compact ? (
-              <h3 className="truncate font-serif text-2xl font-semibold">
+              <h3 className="truncate font-serif text-xl font-semibold">
                 <Link to={`/review/${review.id}`} className="hover:text-brand">
                   {restaurant?.name || 'A visit to remember'}
                 </Link>
@@ -184,11 +184,11 @@ export default function ReviewCard({
         </div>
 
         <div className={compact ? 'review-card-trim min-h-0 flex-1 overflow-hidden' : ''}>
-        <ul className={`${compact ? 'mt-3' : 'mt-4'} border-y border-dashed border-line`}>
+        <ul className={`${compact ? 'mt-2' : 'mt-4'} border-y border-dashed border-line`}>
           {dishes.map((dish, index) => (
             <li
               key={dish.id ?? `${dish.name}-${index}`}
-              className={`flex items-start gap-3 border-b border-dashed border-line py-2.5 last:border-b-0 ${isOnFire(dish.score) ? 'dish-line-fire' : ''}`}
+              className={`flex items-start gap-3 border-b border-dashed border-line ${compact ? 'py-2' : 'py-2.5'} last:border-b-0 ${isOnFire(dish.score) ? 'dish-line-fire' : ''}`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 font-mono text-sm">
@@ -218,7 +218,7 @@ export default function ReviewCard({
         </p>
 
         {review.notes && (
-          <p className={`mt-3 whitespace-pre-wrap break-words text-sm ${compact ? `leading-6 ${hasPhotos ? 'line-clamp-2' : 'line-clamp-5'}` : 'leading-7'}`}>{review.notes}</p>
+          <p className={`whitespace-pre-wrap break-words text-sm ${compact ? `mt-2 leading-6 ${hasPhotos ? 'line-clamp-1' : 'line-clamp-3'}` : 'mt-3 leading-7'}`}>{review.notes}</p>
         )}
         </div>
         {review.photoIds?.length > 0 && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} expanded={expanded} />}

@@ -44,21 +44,21 @@ function PhotoViewer({ ids, initialIndex, name, onClose }) {
   )
 }
 
-// A compact review card shows its photos as one fixed-height strip, side by side, each filling
-// its share (trimmed at the edges, never squashed). They are part of the card: clicking the card
-// opens the expanded review, which shows every photo whole, at its own proportions and never
+// A compact review card shows its first photo trimmed to the same banner on every card (cropped at
+// the edges, never squashed), with a count of any others. It is part of the card: clicking the
+// card opens the expanded review, which shows every photo whole, at its own proportions and never
 // stretched past its real size. Both use the original upload, so the photos lose no quality.
 export default function ReviewPhotos({ ids, name, expanded = false }) {
   const [selected, setSelected] = useState(null)
   if (!expanded) {
-    const shown = ids.slice(0, 3)
     return (
-      <div data-photo-frame className={`mt-3 grid h-32 shrink-0 gap-1 sm:h-36 ${['', 'grid-cols-1', 'grid-cols-2', 'grid-cols-3'][shown.length]}`}>
-        {shown.map((id, index) => (
-          <div key={id} className="relative overflow-hidden rounded-md bg-paper">
-            <Photo id={id} alt={`${name}, photo ${index + 1}`} fit="cover" loading="eager" className="absolute inset-0 size-full" />
-          </div>
-        ))}
+      <div data-photo-frame className="relative mt-2.5 h-28 shrink-0 overflow-hidden rounded-md bg-paper">
+        <Photo id={ids[0]} alt={`${name}, photo 1 of ${ids.length}`} fit="cover" loading="eager" className="absolute inset-0 size-full" />
+        {ids.length > 1 && (
+          <span className="absolute right-2 bottom-2 rounded-full bg-black/65 px-2 py-0.5 font-mono text-[11px] text-white">
+            +{ids.length - 1} {ids.length === 2 ? 'photo' : 'photos'}
+          </span>
+        )}
       </div>
     )
   }
