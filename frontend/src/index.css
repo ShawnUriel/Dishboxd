@@ -59,7 +59,8 @@
 /* Every review in a feed is one size; its ticket and notes are trimmed to fit (see ReviewCard).
    Sections may not widen the card (one-line titles would otherwise push it past the screen),
    and whatever does not fit fades out instead of being cut mid-line. */
-.review-card-compact { height: 25rem; }
+.review-card-compact { height: 36rem; }
+@media (min-width: 640px) { .review-card-compact { height: 38rem; } }
 .review-card-compact > * { min-width: 0; }
 .review-card-trim { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.25rem), transparent); }
 .page-enter { animation: page-enter 420ms ease both; }

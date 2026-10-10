@@ -59,7 +59,7 @@ export default function ReviewCard({
   const compact = !preview && !expanded
   // Without photos, a compact card has room for more of the ticket
   const hasPhotos = review.photoIds?.length > 0
-  const dishes = compact ? review.dishes.slice(0, hasPhotos ? 2 : 3) : review.dishes
+  const dishes = compact ? review.dishes.slice(0, hasPhotos ? 1 : 5) : review.dishes
   const moreDishes = review.dishes.length - dishes.length
   const canDecorate = expanded && isAuthor && !stickerEditor
   const displayedStickers = stickerEditor?.placements ?? stickers.placements
@@ -183,9 +183,9 @@ export default function ReviewCard({
           </span>
         </div>
 
-        {/* Compact: the ticket and notes beside the square photo, fading out if they run long */}
-        <div className={compact ? 'mt-2 flex min-h-0 flex-1 items-start gap-3' : ''}>
-        <div className={compact ? 'review-card-trim min-h-0 min-w-0 flex-1 self-stretch overflow-hidden' : ''}>
+        {/* Compact: the photo centred like a post, then the ticket and notes, fading out if they run long */}
+        {compact && hasPhotos && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} />}
+        <div className={compact ? 'review-card-trim mt-2 min-h-0 flex-1 overflow-hidden' : ''}>
         <ul className={`${compact ? '' : 'mt-4'} border-y border-dashed border-line`}>
           {dishes.map((dish, index) => (
             <li
@@ -195,8 +195,8 @@ export default function ReviewCard({
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 font-mono text-sm">
                   <span className={`min-w-0 ${compact ? 'truncate' : 'break-words'}`}>{dish.name}</span>
-                  <span className={`leader ${compact ? 'max-sm:hidden' : ''}`} aria-hidden="true" />
-                  <span className={`shrink-0 text-muted ${compact ? 'max-sm:hidden' : ''}`}>{formatMoney(dish.price)}</span>
+                  <span className="leader" aria-hidden="true" />
+                  <span className="shrink-0 text-muted">{formatMoney(dish.price)}</span>
                 </div>
                 {dish.description && !compact && (
                   <p className="mt-1 break-words text-xs italic leading-5 text-muted">“{dish.description}”</p>
@@ -216,14 +216,12 @@ export default function ReviewCard({
             {review.dishes.length} {review.dishes.length === 1 ? 'item' : 'items'}
             {moreDishes > 0 && ` · +${moreDishes} more`}
           </span>
-          <span><span className={compact ? 'max-sm:sr-only' : ''}>Total </span>{formatMoney(visitTotal(review))}</span>
+          <span>Total {formatMoney(visitTotal(review))}</span>
         </p>
 
         {review.notes && (
-          <p className={`whitespace-pre-wrap break-words text-sm ${compact ? 'mt-2 line-clamp-2 leading-6' : 'mt-3 leading-7'}`}>{review.notes}</p>
+          <p className={`whitespace-pre-wrap break-words text-sm ${compact ? `mt-2 leading-6 ${hasPhotos ? 'line-clamp-1' : 'line-clamp-5'}` : 'mt-3 leading-7'}`}>{review.notes}</p>
         )}
-        </div>
-        {compact && hasPhotos && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} />}
         </div>
         {expanded && hasPhotos && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} expanded />}
         {preview && hasPhotos && (
