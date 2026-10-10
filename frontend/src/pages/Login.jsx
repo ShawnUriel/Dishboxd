@@ -6,7 +6,7 @@ import GoogleButton from '../components/molecules/GoogleButton.jsx'
 import AuthCard, { FormError, OrDivider } from '../components/organisms/AuthCard.jsx'
 import { authCall, authClient, authErrorMessage, isUnverifiedEmail, looksLikeEmail } from '../lib/auth.js'
 
-// "Log in": email + password, or Continue with Google.
+// The primary login is followed by a server-enforced email-code check.
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -32,7 +32,7 @@ export default function Login() {
       authClient.signIn.email({ email: cleanEmail, password }),
     )
     if (!signInError) {
-      navigate(goTo, { replace: true })
+      navigate('/verify-login', { replace: true, state: { from: goTo } })
       return
     }
 
@@ -52,7 +52,7 @@ export default function Login() {
   return (
     <AuthCard
       title="Log in"
-      subtitle="Welcome back to your journal"
+      subtitle="Enter your password, then confirm the code sent to your email."
       footer={
         <>
           New to Dishboxd?{' '}
@@ -88,7 +88,7 @@ export default function Login() {
           onChange={(event) => setPassword(event.target.value)}
         />
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? 'Logging in…' : 'Log in'}
+          {busy ? 'Checking password…' : 'Continue to email code'}
         </Button>
       </form>
 

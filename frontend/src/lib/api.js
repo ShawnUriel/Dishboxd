@@ -14,10 +14,10 @@ export class ApiError extends Error {
 
 // The login token (a short-lived JWT) from the current Neon Auth session.
 // The Neon Auth package caches it and fetches a fresh one when it expires.
-async function loginToken() {
+async function loginSession() {
   try {
     const { data } = await authClient.getSession()
-    return data?.session?.token ?? null
+    return data?.session ?? null
   } catch {
     return null
   }
@@ -25,16 +25,17 @@ async function loginToken() {
 
 // Call the Dishboxd API as the logged-in user. Returns the JSON body, or throws an
 // ApiError whose message can be shown to the user as-is.
-export async function api(path, { method = 'GET', body, signal, binary = false } = {}) {
-  const token = await loginToken()
-  if (!token) throw new ApiError('Your session has expired. Log in again.', 401)
+export async function api(path, { method = 'GET', body, signal, binary = false, anonymous = false } = {}) {
+  const session = anonymous ? null : await loginSession()
+  if (!anonymous && !session?.token) throw new ApiError('Your session has expired. Log in again.', 401)
 
   let response
   try {
     response = await fetch(`${API_URL}${path}`, {
       method,
+      credentials: 'include',
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...(session ? { Authorization: `Bearer ${session.token}`, 'X-Auth-Session': session.id ?? '' } : {}),
         ...(body === undefined
           ? {}
           : { 'Content-Type': body instanceof Blob ? body.type : 'application/json' }),
@@ -49,6 +50,12 @@ export async function api(path, { method = 'GET', body, signal, binary = false }
 
   if (binary && response.ok) return response.blob()
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new ApiError(data.error || `Request failed (${response.status}).`, response.status)
+  if (!response.ok) {
+    const error = new ApiError(data.error || `Request failed (${response.status}).`, response.status)
+    error.code = data.code
+    error.retryAfter = data.retryAfter
+    if (data.code === 'EMAIL_CODE_REQUIRED') window.dispatchEvent(new Event('dishboxd:email-required'))
+    throw error
+  }
   return data
 }

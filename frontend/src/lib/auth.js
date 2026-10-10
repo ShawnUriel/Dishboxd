@@ -2,7 +2,8 @@ import { createAuthClient } from '@neondatabase/auth'
 import { BetterAuthReactAdapter } from '@neondatabase/auth/react/adapters'
 
 // One Neon Auth client for the whole app. Neon Auth runs the accounts:
-// email + password with an emailed verification code, and "Continue with Google".
+// email + password and "Continue with Google". The Dishboxd API also requires an
+// emailed code for each new login session before granting journal access.
 const authUrl = import.meta.env.VITE_NEON_AUTH_URL
 if (!authUrl) {
   throw new Error('VITE_NEON_AUTH_URL is missing. Copy frontend/.env.example to frontend/.env.')

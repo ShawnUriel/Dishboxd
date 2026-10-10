@@ -7,6 +7,7 @@ if (!NEON_AUTH_URL) {
 
 // Neon Auth puts its own origin in both the issuer and audience claims
 const issuer = new URL(NEON_AUTH_URL).origin
+const { pool } = require('./db')
 
 // jose is published only as an ES module. require() of an ES module depends on Node's own
 // module loader, which Vercel replaces, so jose is loaded with import() instead.
@@ -39,4 +40,18 @@ async function requireUser(req, res, next) {
   }
 }
 
-module.exports = { requireUser }
+// OTP endpoints need a valid primary login, even before its email receipt exists.
+// The session id is public context, never a credential: require both the signed
+// user token above and a live session belonging to that same user.
+async function loadSession(req, res, next) {
+  const id = req.get('x-auth-session')
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id || '')) return res.status(401).json({ error: 'Log in again to continue.' })
+  const { rows } = await pool.query(`SELECT s.id, s."expiresAt", u.email
+    FROM neon_auth.session s JOIN neon_auth."user" u ON u.id = s."userId"
+    WHERE s.id = $1 AND s."userId" = $2 AND s."expiresAt" > now() AND u."emailVerified" = true`, [id, req.userId])
+  if (!rows.length) return res.status(401).json({ error: 'Your session has expired. Log in again.' })
+  req.authSession = rows[0]
+  next()
+}
+
+module.exports = { requireUser, loadSession }

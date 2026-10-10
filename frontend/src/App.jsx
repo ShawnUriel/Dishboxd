@@ -17,6 +17,7 @@ import RestaurantProfile from './pages/RestaurantProfile.jsx'
 import Search from './pages/Search.jsx'
 import SignUp from './pages/SignUp.jsx'
 import VerifyEmail from './pages/VerifyEmail.jsx'
+import VerifyLogin from './pages/VerifyLogin.jsx'
 import VisitForm from './pages/VisitForm.jsx'
 import Profile from './pages/Profile.jsx'
 import Friends from './pages/Friends.jsx'
@@ -67,6 +68,7 @@ function App() {
             <Route path="/signup" element={<SignUp />} />
           </Route>
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-login" element={<VerifyLogin />} />
         </Route>
 
         <Route element={<RequireAuth />}>

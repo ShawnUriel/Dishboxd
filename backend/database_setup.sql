@@ -344,3 +344,23 @@ BEGIN
       handle_set_at = CASE WHEN handle ~ '^diner_[0-9a-f]{24}$' THEN NULL ELSE created_at END;
   END IF;
 END $$;
+
+-- Email confirmation receipts are separate from Neon's managed identity tables.
+-- Only token hashes are stored; receipts are bound to a particular active session.
+CREATE TABLE IF NOT EXISTS email_login_sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  auth_session_id UUID,
+  expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS email_login_sessions_expiry_idx ON email_login_sessions (expires_at);
+CREATE TABLE IF NOT EXISTS email_login_challenges (
+  user_id UUID PRIMARY KEY REFERENCES neon_auth."user"(id) ON DELETE CASCADE,
+  auth_session_id UUID NOT NULL,
+  email TEXT NOT NULL,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT now() + interval '10 minutes',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  consumed_at TIMESTAMPTZ
+);

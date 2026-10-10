@@ -14,7 +14,9 @@ for (const name of ['DATABASE_URL', 'NEON_AUTH_URL']) {
   }
 }
 
-const { requireUser } = require('./auth')
+const { requireUser, loadSession } = require('./auth')
+const { requireEmail } = require('./email-session')
+const { router: emailAuthRouter } = require('./routes/email-auth')
 const { router: restaurantsRouter } = require('./routes/restaurants')
 const { router: visitsRouter } = require('./routes/visits')
 const { router: boxesRouter } = require('./routes/boxes')
@@ -33,7 +35,7 @@ const PORT = process.env.PORT || 5000
 
 // Only the Dishboxd website may call the API, not every website (no "*" wildcard)
 const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
-app.use(cors({ origin: allowedOrigin }))
+app.use(cors({ origin: allowedOrigin, credentials: true }))
 // A ticket with 20 items, each with its own note, fits comfortably in 64 KB
 app.use(express.json({ limit: '64kb' }))
 
@@ -42,19 +44,24 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'Dishboxd backend is working!' })
 })
 
+app.use('/api/auth/email', emailAuthRouter)
+
+// Protect every journal endpoint, including direct API calls and media downloads.
+app.use('/api', requireUser, loadSession, requireEmail)
+
 // Journal routes: every one needs a logged-in user and only sees that user's rows
-app.use('/api/restaurants', requireUser, restaurantsRouter)
-app.use('/api/visits', requireUser, visitsRouter)
-app.use('/api/boxes', requireUser, boxesRouter)
-app.use('/api/places', requireUser, placesRouter)
-app.use('/api/profiles', requireUser, profilesRouter)
-app.use('/api/media', requireUser, mediaRouter)
-app.use('/api/stickers', requireUser, stickersRouter)
-app.use('/api/reviews', requireUser, reviewsRouter)
-app.use('/api/reviews/:id/comments', requireUser, commentsRouter)
-app.use('/api/bookmarks', requireUser, bookmarksRouter)
-app.use('/api/notifications', requireUser, notificationsRouter)
-app.use('/api/settings', requireUser, settingsRouter)
+app.use('/api/restaurants', restaurantsRouter)
+app.use('/api/visits', visitsRouter)
+app.use('/api/boxes', boxesRouter)
+app.use('/api/places', placesRouter)
+app.use('/api/profiles', profilesRouter)
+app.use('/api/media', mediaRouter)
+app.use('/api/stickers', stickersRouter)
+app.use('/api/reviews', reviewsRouter)
+app.use('/api/reviews/:id/comments', commentsRouter)
+app.use('/api/bookmarks', bookmarksRouter)
+app.use('/api/notifications', notificationsRouter)
+app.use('/api/settings', settingsRouter)
 
 // Unknown routes get a plain 404 instead of Express's default HTML page
 app.use((req, res) => {

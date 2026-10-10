@@ -14,7 +14,7 @@ function GoogleG() {
 }
 
 // "Continue with Google": the same button signs up a new user or logs in an existing one.
-// Google has already checked the email address, so these accounts skip the emailed code.
+// Google establishes the primary login; Dishboxd then checks the email code too.
 export default function GoogleButton({ onError }) {
   const [busy, setBusy] = useState(false)
 

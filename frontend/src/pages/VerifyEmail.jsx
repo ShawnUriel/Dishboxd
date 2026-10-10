@@ -4,6 +4,7 @@ import Button from '../components/atoms/Button.jsx'
 import TextField from '../components/atoms/TextField.jsx'
 import AuthCard, { FormError } from '../components/organisms/AuthCard.jsx'
 import { authCall, authClient, authErrorMessage, looksLikeEmail } from '../lib/auth.js'
+import { api } from '../lib/api.js'
 
 const RESEND_WAIT_SECONDS = 30
 
@@ -38,6 +39,19 @@ export default function VerifyEmail() {
     if (!/^\d{4,10}$/.test(otp)) return setError('Enter the code from the email (numbers only).')
 
     setBusy(true)
+    // Check this same signup code on the API before Neon consumes it, then bind
+    // its short-lived receipt to the new session when the journal opens.
+    try {
+      await api('/api/auth/email/signup-receipt', { method: 'POST', body: { email, otp }, anonymous: true })
+    } catch (err) {
+      if (err.status === 409) {
+        navigate('/login', { replace: true, state: { notice: 'Your email is already confirmed. Log in to continue.' } })
+        return
+      }
+      setError(err.message)
+      setBusy(false)
+      return
+    }
     const { error: verifyError } = await authCall(() => authClient.emailOtp.verifyEmail({ email, otp }))
     if (verifyError) {
       setError(authErrorMessage(verifyError))
