@@ -56,6 +56,12 @@
 }
 .paper-lift { transition: transform 180ms ease, box-shadow 180ms ease; }
 .paper-lift:hover { transform: translateY(-3px); box-shadow: 0 8px 24px #2b282312; }
+/* Every review in a feed is one size; its ticket and notes are trimmed to fit (see ReviewCard).
+   Sections may not widen the card (one-line titles would otherwise push it past the screen),
+   and whatever does not fit fades out instead of being cut mid-line. */
+.review-card-compact { height: 34rem; }
+.review-card-compact > * { min-width: 0; }
+.review-card-trim { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.25rem), transparent); }
 .page-enter { animation: page-enter 420ms ease both; }
 .stagger > * { animation: page-enter 420ms ease both; }
 .stagger > :nth-child(2) { animation-delay: 65ms; }

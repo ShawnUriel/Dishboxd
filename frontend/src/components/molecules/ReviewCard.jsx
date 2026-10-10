@@ -21,7 +21,9 @@ import { useSettings } from '../../state/useSettings.js'
 
 // One review: who wrote it, where, every item with its own score, the notes and photos,
 // stickers, and likes / reposts / sharing. Any item past 10 sets the whole card on fire.
-// Authors can decorate their reviews wherever they appear, including social feeds.
+// In feeds it is a compact card, the same size for every review: the first few items, the start
+// of the notes and a photo strip. Clicking it opens the expanded review with everything, where
+// the author can also decorate, share and manage it.
 // A preview uses the supplied stickerEditor and never changes a saved review.
 // Changes reach the page as a partial review through onChange.
 export default function ReviewCard({
@@ -54,7 +56,12 @@ export default function ReviewCard({
   const named = otherReposters.slice(0, review.reposted ? 1 : 2)
   const moreReposters = otherReposters.length - named.length
   const isAuthor = own || (currentUserId && review.author?.id === currentUserId)
-  const canDecorate = !preview && isAuthor && !stickerEditor
+  const compact = !preview && !expanded
+  // Without photos, a compact card has room for more of the ticket
+  const hasPhotos = review.photoIds?.length > 0
+  const dishes = compact ? review.dishes.slice(0, hasPhotos ? 2 : 4) : review.dishes
+  const moreDishes = review.dishes.length - dishes.length
+  const canDecorate = expanded && isAuthor && !stickerEditor
   const displayedStickers = stickerEditor?.placements ?? stickers.placements
   const editingStickers = stickerEditor ? stickerEditor.editing : canDecorate && decorating
 
@@ -71,12 +78,12 @@ export default function ReviewCard({
   }
 
   return (
-    // A column so the card fills its grid cell: cards side by side on Profile and Friends match heights
-    <div className={`mx-auto flex w-full flex-col ${expanded ? '' : 'max-w-[40rem]'}`}>
+    <div className={`mx-auto w-full min-w-0 ${expanded ? '' : 'max-w-[40rem]'}`}>
       <article onClick={(event) => {
         if (preview || expanded || editingStickers || event.defaultPrevented || event.target.closest('a, button, input, textarea, select, dialog, [role="button"]') || window.getSelection()?.toString()) return
         navigate(`/review/${review.id}`)
-      }} className={`paper-card relative isolate mx-auto w-full flex-1 p-4 sm:p-5 ${!preview && !expanded ? 'cursor-pointer' : ''} ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
+      }} className={`paper-card relative isolate mx-auto w-full p-4 sm:p-5 ${compact ? 'review-card-compact flex cursor-pointer flex-col' : ''} ${level > 0 ? 'on-fire' : ''} ${
+        compact ? '' : level > 1 ? 'pb-30 sm:pb-30' : level ? 'pb-24 sm:pb-24' : ''}`}>
         {!preview && (review.reposted || named.length > 0) && (
           <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
             ↻{' '}
@@ -130,13 +137,19 @@ export default function ReviewCard({
         )}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="mb-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wider text-muted">
+            <p className={`mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted ${compact ? 'overflow-hidden whitespace-nowrap' : 'flex-wrap'}`}>
               {formatDate(review.date)}
               <CategoryTag category={restaurant?.category} />
               {review.cuisine && review.cuisine !== restaurant?.category && <CategoryTag category={`${review.cuisine} cuisine`} />}
               {level > 0 && <span className="fire-stamp">On fire</span>}
             </p>
-            {!preview && own && restaurant ? (
+            {compact ? (
+              <h3 className="truncate font-serif text-2xl font-semibold">
+                <Link to={`/review/${review.id}`} className="hover:text-brand">
+                  {restaurant?.name || 'A visit to remember'}
+                </Link>
+              </h3>
+            ) : !preview && own && restaurant ? (
               <Link
                 to={`/restaurant/${restaurant.id}`}
                 className="break-words font-serif text-2xl font-semibold hover:text-brand"
@@ -148,13 +161,13 @@ export default function ReviewCard({
                 {restaurant?.name || 'A visit to remember'}
               </h3>
             )}
-            {restaurant?.address && <p className="mt-1 text-xs text-muted">{restaurant.address}</p>}
+            {restaurant?.address && !compact && <p className="mt-1 text-xs text-muted">{restaurant.address}</p>}
             {review.createdAt && (
-              <p className="mt-1 flex flex-wrap gap-x-1.5 text-xs text-muted">
+              <p className={`mt-1 flex gap-x-1.5 text-xs text-muted ${compact ? 'overflow-hidden' : 'flex-wrap'}`}>
                 <span className="whitespace-nowrap">
                   Posted <time dateTime={review.createdAt}>{formatDateTime(review.createdAt)}</time>
                 </span>{' '}
-                {review.editedAt && (
+                {review.editedAt && !compact && (
                   <span className="whitespace-nowrap">
                     · Edited <time dateTime={review.editedAt}>{formatDateTime(review.editedAt)}</time>
                   </span>
@@ -170,8 +183,9 @@ export default function ReviewCard({
           </span>
         </div>
 
-        <ul className="mt-4 border-y border-dashed border-line">
-          {review.dishes.map((dish, index) => (
+        <div className={compact ? 'review-card-trim min-h-0 flex-1 overflow-hidden' : ''}>
+        <ul className={`${compact ? 'mt-3' : 'mt-4'} border-y border-dashed border-line`}>
+          {dishes.map((dish, index) => (
             <li
               key={dish.id ?? `${dish.name}-${index}`}
               className={`flex items-start gap-3 border-b border-dashed border-line py-2.5 last:border-b-0 ${isOnFire(dish.score) ? 'dish-line-fire' : ''}`}
@@ -182,7 +196,7 @@ export default function ReviewCard({
                   <span className="leader" aria-hidden="true" />
                   <span className="shrink-0 text-muted">{formatMoney(dish.price)}</span>
                 </div>
-                {dish.description && (
+                {dish.description && !compact && (
                   <p className="mt-1 break-words text-xs italic leading-5 text-muted">“{dish.description}”</p>
                 )}
               </div>
@@ -198,19 +212,36 @@ export default function ReviewCard({
         <p className="mt-2 flex justify-between font-mono text-xs text-muted">
           <span>
             {review.dishes.length} {review.dishes.length === 1 ? 'item' : 'items'}
+            {moreDishes > 0 && ` · +${moreDishes} more`}
           </span>
           <span>Total {formatMoney(visitTotal(review))}</span>
         </p>
 
         {review.notes && (
-          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{review.notes}</p>
+          <p className={`mt-3 whitespace-pre-wrap break-words text-sm ${compact ? `leading-6 ${hasPhotos ? 'line-clamp-2' : 'line-clamp-5'}` : 'leading-7'}`}>{review.notes}</p>
         )}
+        </div>
         {review.photoIds?.length > 0 && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} expanded={expanded} />}
 
-        {!preview && (
+        {compact && (
+          <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2 border-t border-dashed border-line pt-3">
+            {review.isPublic && (
+              <ReviewActions review={review} canRepost={!isAuthor && review.coauthor?.id !== currentUserId} onChange={onChange} />
+            )}
+            <Link
+              to={`/review/${review.id}#comments`}
+              aria-label={`Comments, ${review.commentCount ?? 0}`}
+              className="flex items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1.5 text-xs text-muted transition-colors hover:border-ink hover:text-ink"
+            >
+              <CommentIcon />
+              <span className="tabular-nums">{review.commentCount ?? 0}</span>
+            </Link>
+            {isAuthor && !review.isPublic && <span className="ml-auto text-xs text-muted">Only me</span>}
+          </div>
+        )}
+        {expanded && (
           <div className="mt-4 space-y-3 border-t border-dashed border-line pt-3">
             <div className="flex flex-wrap items-center gap-3">
-              {!expanded && <Link to={`/review/${review.id}`} className="text-xs font-semibold text-accent underline">View full review</Link>}
               <Link to={`/review/${review.id}#comments`} className="inline-flex items-center gap-1.5 text-xs text-accent underline"><CommentIcon />Comments ({review.commentCount ?? 0})</Link>
               {isAuthor && <Link to={`/review/${review.id}/edit`} className="text-xs text-accent underline">Edit review</Link>}
               {isAuthor && <Link to={`/review/${review.id}`} className="text-xs text-muted underline">Manage review</Link>}
