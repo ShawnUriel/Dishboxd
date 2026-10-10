@@ -5,6 +5,7 @@ import TextField from '../components/atoms/TextField.jsx'
 import AuthCard, { FormError } from '../components/organisms/AuthCard.jsx'
 import { authCall, authClient, authErrorMessage } from '../lib/auth.js'
 import { api } from '../lib/api.js'
+import { withoutSignInVerifier } from '../lib/redirects.js'
 
 export default function VerifyLogin() {
   const { data: session, isPending } = authClient.useSession()
@@ -17,7 +18,9 @@ function CodeForm({ email }) {
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from
-  const destination = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/verify-') ? from : '/'
+  const destination = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/verify-')
+    ? withoutSignInVerifier(from)
+    : '/'
   const [code, setCode] = useState('')
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)

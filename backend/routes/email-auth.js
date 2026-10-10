@@ -89,10 +89,6 @@ router.post('/verify', async (req, res) => {
     // This endpoint consumes the provider OTP. Checking only in the browser, or
     // using the non-consuming check endpoint here, would allow code replay.
     const result = await neonEmail('email-otp/verify-email', { email: req.authSession.email, otp }, clientIp(req))
-    if (process.env.DEBUG_EMAIL_AUTH) { // DEBUG(temp)
-      const { rows } = await pool.query('SELECT 1 FROM neon_auth.session WHERE id = $1', [req.authSession.id])
-      console.log('[auth debug] verify-email answered', result.status, '| browser session', req.authSession.id.slice(0, 8), rows.length ? 'still exists' : 'GONE right after verify-email')
-    }
     if (result.status !== 200) {
       // Neon has voided this code, so stop offering it; the page then asks for a new one
       if (result.dead) await db.query('UPDATE email_login_challenges SET consumed_at = now() WHERE user_id = $1', [req.userId])

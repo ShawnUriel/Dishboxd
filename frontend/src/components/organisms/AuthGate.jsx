@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { authClient } from '../../lib/auth.js'
 import { api } from '../../lib/api.js'
+import { withoutSignInVerifier } from '../../lib/redirects.js'
 import Button from '../atoms/Button.jsx'
 import { JournalProvider } from '../../state/JournalProvider.jsx'
 import { SettingsProvider } from '../../state/SettingsProvider.jsx'
@@ -54,7 +55,8 @@ function EmailSessionGate({ children }) {
     <p role="alert" className="mb-4 font-mono text-sm">{state.error}</p>
     <Button onClick={() => { setState({ loading: true }); setAttempt((value) => value + 1) }}>Try again</Button>
   </div></div>
-  if (!state.verified) return <Navigate to="/verify-login" replace state={{ from: location.pathname + location.search }} />
+  if (!state.verified)
+    return <Navigate to="/verify-login" replace state={{ from: withoutSignInVerifier(location.pathname + location.search) }} />
   return children
 }
 
