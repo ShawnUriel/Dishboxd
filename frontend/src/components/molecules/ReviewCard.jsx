@@ -57,9 +57,9 @@ export default function ReviewCard({
   const moreReposters = otherReposters.length - named.length
   const isAuthor = own || (currentUserId && review.author?.id === currentUserId)
   const compact = !preview && !expanded
-  // Without photos, a compact card has room for more of the ticket
   const hasPhotos = review.photoIds?.length > 0
-  const dishes = compact ? review.dishes.slice(0, hasPhotos ? 1 : 5) : review.dishes
+  // A compact card shows the first item under its photo; the expanded review lists them all
+  const dishes = compact ? review.dishes.slice(0, 1) : review.dishes
   const moreDishes = review.dishes.length - dishes.length
   const canDecorate = expanded && isAuthor && !stickerEditor
   const displayedStickers = stickerEditor?.placements ?? stickers.placements
@@ -77,34 +77,38 @@ export default function ReviewCard({
     }
   }
 
+  // "↻ You and Bea reposted": a line of its own, or inside the author row on a compact card
+  const repostedBy = !preview && (review.reposted || named.length > 0) && (
+    <>
+      ↻{' '}
+      {[
+        ...(review.reposted ? [<span key="you">You</span>] : []),
+        ...named.map((person) => (
+          <Link key={person.id} to={`/profile/${person.id}`} className="underline underline-offset-4">
+            {person.name}
+          </Link>
+        )),
+        ...(moreReposters > 0 ? [<span key="more">{moreReposters} {moreReposters === 1 ? 'other' : 'others'}</span>] : []),
+      ].map((part, index, parts) => (
+        <span key={index}>
+          {index > 0 && (index === parts.length - 1 ? ' and ' : ', ')}
+          {part}
+        </span>
+      ))}{' '}
+      reposted
+    </>
+  )
+
   return (
-    <div className={`mx-auto w-full min-w-0 ${expanded ? '' : 'max-w-[40rem]'}`}>
+    // Compact cards are Instagram-width, so their square photo spans the whole card
+    <div className={`mx-auto w-full min-w-0 ${expanded ? '' : compact ? 'max-w-[30rem]' : 'max-w-[40rem]'}`}>
       <article onClick={(event) => {
         if (preview || expanded || editingStickers || event.defaultPrevented || event.target.closest('a, button, input, textarea, select, dialog, [role="button"]') || window.getSelection()?.toString()) return
         navigate(`/review/${review.id}`)
       }} className={`paper-card relative isolate mx-auto w-full ${compact ? 'review-card-compact flex cursor-pointer flex-col p-4' : 'p-4 sm:p-5'} ${level > 0 ? 'on-fire' : ''} ${
         compact ? '' : level > 1 ? 'pb-30 sm:pb-30' : level ? 'pb-24 sm:pb-24' : ''}`}>
-        {!preview && (review.reposted || named.length > 0) && (
-          <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
-            ↻{' '}
-            {[
-              ...(review.reposted ? [<span key="you">You</span>] : []),
-              ...named.map((person) => (
-                <Link key={person.id} to={`/profile/${person.id}`} className="underline underline-offset-4">
-                  {person.name}
-                </Link>
-              )),
-              ...(moreReposters > 0 ? [<span key="more">{moreReposters} {moreReposters === 1 ? 'other' : 'others'}</span>] : []),
-            ].map((part, index, parts) => (
-              <span key={index}>
-                {index > 0 && (index === parts.length - 1 ? ' and ' : ', ')}
-                {part}
-              </span>
-            ))}{' '}
-            reposted
-          </p>
-        )}
-        {!preview && showAuthor && authors.length > 0 && (
+        {repostedBy && !compact && <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">{repostedBy}</p>}
+        {!preview && (compact || showAuthor) && authors.length > 0 && (
           <div className={`${compact ? 'mb-3' : 'mb-4'} flex items-center gap-3`}>
             <div className="flex -space-x-2">
               {authors.map((author) => (
@@ -118,26 +122,32 @@ export default function ReviewCard({
                 </Link>
               ))}
             </div>
-            <p className="min-w-0 text-sm">
-              {authors.map((author, index) => (
-                <span key={author.id}>
-                  {index > 0 && <span className="text-muted"> &amp; </span>}
-                  <Link to={`/profile/${author.id}`} className="hover:text-brand">
-                    {author.name}
-                  </Link>
+            <p className="min-w-0 flex-1 text-sm">
+              <span className={compact ? 'flex items-center gap-2' : ''}>
+                <span className={compact ? 'min-w-0 truncate' : ''}>
+                  {authors.map((author, index) => (
+                    <span key={author.id}>
+                      {index > 0 && <span className="text-muted"> &amp; </span>}
+                      <Link to={`/profile/${author.id}`} className="hover:text-brand">
+                        {author.name}
+                      </Link>
+                    </span>
+                  ))}
                 </span>
-              ))}
-              <span className="block text-xs text-muted">
+                {review.accountPrivate && compact && <span className="shrink-0"><PrivateBadge /></span>}
+              </span>
+              <span className={`block text-xs text-muted ${compact ? 'truncate' : ''}`}>
                 @{review.author?.handle}
                 {coauthor && ` · a co-review with @${coauthor.handle}`}
+                {repostedBy && compact && <span className="text-accent"> · {repostedBy}</span>}
               </span>
-              {review.accountPrivate && <span className="mt-2 block"><PrivateBadge /></span>}
+              {review.accountPrivate && !compact && <span className="mt-2 block"><PrivateBadge /></span>}
             </p>
           </div>
         )}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className={`mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted ${compact ? 'overflow-hidden whitespace-nowrap' : 'flex-wrap'}`}>
+            <p className={`mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted ${compact ? 'h-6 overflow-hidden whitespace-nowrap' : 'flex-wrap'}`}>
               {formatDate(review.date)}
               <CategoryTag category={restaurant?.category} />
               {review.cuisine && review.cuisine !== restaurant?.category && <CategoryTag category={`${review.cuisine} cuisine`} />}
@@ -183,14 +193,23 @@ export default function ReviewCard({
           </span>
         </div>
 
-        {/* Compact: the photo centred like a post, then the ticket and notes, fading out if they run long */}
-        {compact && hasPhotos && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} />}
-        <div className={compact ? 'review-card-trim mt-2 min-h-0 flex-1 overflow-hidden' : ''}>
+        {/* Compact: a square across the whole card, like an Instagram post: the first photo, or
+            without one, the notes as a text post. Every row below it is one fixed line. */}
+        {compact && (hasPhotos ? (
+          <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} />
+        ) : (
+          <div className="bg-lined -mx-4 mt-3 grid aspect-square place-items-center overflow-hidden border-y border-line px-8">
+            <p className="line-clamp-7 text-center font-serif text-2xl italic leading-snug sm:text-3xl">
+              {review.notes ? `“${review.notes}”` : restaurant?.name || 'A visit to remember'}
+            </p>
+          </div>
+        ))}
+        <div className={compact ? 'mt-3' : ''}>
         <ul className={`${compact ? '' : 'mt-4'} border-y border-dashed border-line`}>
           {dishes.map((dish, index) => (
             <li
               key={dish.id ?? `${dish.name}-${index}`}
-              className={`flex items-start gap-3 border-b border-dashed border-line ${compact ? 'py-2' : 'py-2.5'} last:border-b-0 ${isOnFire(dish.score) ? 'dish-line-fire' : ''}`}
+              className={`flex gap-3 border-b border-dashed border-line ${compact ? 'h-11 items-center' : 'items-start py-2.5'} last:border-b-0 ${isOnFire(dish.score) ? 'dish-line-fire' : ''}`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 font-mono text-sm">
@@ -219,16 +238,14 @@ export default function ReviewCard({
           <span>Total {formatMoney(visitTotal(review))}</span>
         </p>
 
-        {review.notes && (
-          <p className={`whitespace-pre-wrap break-words text-sm ${compact ? `mt-2 leading-6 ${hasPhotos ? 'line-clamp-1' : 'line-clamp-5'}` : 'mt-3 leading-7'}`}>{review.notes}</p>
+        {compact ? (
+          // The caption line is always there, so every card keeps the same height
+          <p className="mt-2 h-6 truncate text-sm leading-6">{hasPhotos && review.notes}</p>
+        ) : (
+          review.notes && <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{review.notes}</p>
         )}
         </div>
-        {expanded && hasPhotos && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} expanded />}
-        {preview && hasPhotos && (
-          <div className="mt-3">
-            <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} />
-          </div>
-        )}
+        {!compact && hasPhotos && <ReviewPhotos ids={review.photoIds} name={restaurant?.name || 'Dining experience'} expanded />}
 
         {compact && (
           <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2 border-t border-dashed border-line pt-3">

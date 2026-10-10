@@ -44,16 +44,16 @@ function PhotoViewer({ ids, initialIndex, name, onClose }) {
   )
 }
 
-// A compact review card shows its first photo centred like a post, trimmed to the same medium square
-// on every card (cropped at the edges, never squashed), with a count of any others. It is part of
-// the card: clicking the card opens the expanded review, which shows every photo whole, at its own
+// A compact review card shows its first photo like an Instagram post: a square across the whole card
+// (cropped at the edges, never squashed), with a count of any others. It is part of the card:
+// clicking the card opens the expanded review, which shows every photo whole, at its own
 // proportions and never stretched past its real size. Both use the original upload, so the photos
 // lose no quality.
 export default function ReviewPhotos({ ids, name, expanded = false }) {
   const [selected, setSelected] = useState(null)
   if (!expanded) {
     return (
-      <div data-photo-frame className="relative mx-auto mt-2 size-64 shrink-0 overflow-hidden rounded-md bg-paper sm:size-72">
+      <div data-photo-frame className="relative -mx-4 mt-3 aspect-square shrink-0 overflow-hidden bg-paper">
         <Photo id={ids[0]} alt={`${name}, photo 1 of ${ids.length}`} fit="cover" loading="eager" className="absolute inset-0 size-full" />
         {ids.length > 1 && (
           <span className="absolute right-2 bottom-2 rounded-full bg-black/65 px-2 py-0.5 font-mono text-[11px] text-white">
