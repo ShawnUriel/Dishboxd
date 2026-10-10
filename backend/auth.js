@@ -24,6 +24,7 @@ verifierReady.catch((error) => console.error('Could not load jose:', error))
 async function requireUser(req, res, next) {
   const [scheme, token] = (req.get('authorization') ?? '').split(' ')
   if (scheme !== 'Bearer' || !token) {
+    if (process.env.DEBUG_EMAIL_AUTH) console.log('[auth debug]', req.method, req.originalUrl, '401: no bearer token') // DEBUG(temp)
     return res.status(401).json({ error: 'Log in to continue.' })
   }
 
@@ -35,7 +36,8 @@ async function requireUser(req, res, next) {
     if (!payload.sub) throw new Error('Token has no user id')
     req.userId = payload.sub
     next()
-  } catch {
+  } catch (error) {
+    if (process.env.DEBUG_EMAIL_AUTH) console.log('[auth debug]', req.method, req.originalUrl, '401: JWT rejected:', error.code || '', error.message) // DEBUG(temp)
     res.status(401).json({ error: 'Your session has expired. Log in again.' })
   }
 }
@@ -45,11 +47,21 @@ async function requireUser(req, res, next) {
 // user token above and a live session belonging to that same user.
 async function loadSession(req, res, next) {
   const id = req.get('x-auth-session')
-  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id || '')) return res.status(401).json({ error: 'Log in again to continue.' })
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id || '')) {
+    if (process.env.DEBUG_EMAIL_AUTH) console.log('[auth debug]', req.method, req.originalUrl, '401: X-Auth-Session header missing or not a UUID:', JSON.stringify(id)) // DEBUG(temp)
+    return res.status(401).json({ error: 'Log in again to continue.' })
+  }
   const { rows } = await pool.query(`SELECT s.id, s."expiresAt", u.email
     FROM neon_auth.session s JOIN neon_auth."user" u ON u.id = s."userId"
     WHERE s.id = $1 AND s."userId" = $2 AND s."expiresAt" > now() AND u."emailVerified" = true`, [id, req.userId])
-  if (!rows.length) return res.status(401).json({ error: 'Your session has expired. Log in again.' })
+  if (!rows.length) {
+    if (process.env.DEBUG_EMAIL_AUTH) { // DEBUG(temp)
+      const { rows: [found] } = await pool.query(`SELECT s."userId" = $2 AS same_user, s."expiresAt" > now() AS live, u."emailVerified" AS verified
+        FROM neon_auth.session s JOIN neon_auth."user" u ON u.id = s."userId" WHERE s.id = $1`, [id, req.userId])
+      console.log('[auth debug]', req.method, req.originalUrl, '401: session', id.slice(0, 8), found ? `exists ${JSON.stringify(found)}` : 'NOT IN neon_auth.session')
+    }
+    return res.status(401).json({ error: 'Your session has expired. Log in again.' })
+  }
   req.authSession = rows[0]
   next()
 }
