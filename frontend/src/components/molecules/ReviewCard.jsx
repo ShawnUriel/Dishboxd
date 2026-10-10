@@ -71,11 +71,12 @@ export default function ReviewCard({
   }
 
   return (
-    <div className={`mx-auto w-full ${expanded ? '' : 'max-w-[40rem]'}`}>
+    // A column so the card fills its grid cell: cards side by side on Profile and Friends match heights
+    <div className={`mx-auto flex w-full flex-col ${expanded ? '' : 'max-w-[40rem]'}`}>
       <article onClick={(event) => {
         if (preview || expanded || editingStickers || event.defaultPrevented || event.target.closest('a, button, input, textarea, select, dialog, [role="button"]') || window.getSelection()?.toString()) return
         navigate(`/review/${review.id}`)
-      }} className={`paper-card relative isolate mx-auto w-full p-4 sm:p-5 ${!preview && !expanded ? 'cursor-pointer' : ''} ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
+      }} className={`paper-card relative isolate mx-auto w-full flex-1 p-4 sm:p-5 ${!preview && !expanded ? 'cursor-pointer' : ''} ${level > 1 ? 'on-fire pb-30 sm:pb-30' : level ? 'on-fire pb-24 sm:pb-24' : ''}`}>
         {!preview && (review.reposted || named.length > 0) && (
           <p className="mb-3 text-[11px] uppercase tracking-wider text-accent">
             ↻{' '}

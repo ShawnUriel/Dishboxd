@@ -44,17 +44,36 @@ function PhotoViewer({ ids, initialIndex, name, onClose }) {
   )
 }
 
+// Where each photo sits in a card's 4:3 frame (a 2 × 2 grid): one fills it, two share it
+// side by side, three are a tall photo on the left and two stacked on the right.
+const frameCells = {
+  1: ['col-span-2 row-span-2'],
+  2: ['row-span-2', 'row-span-2'],
+  3: ['row-span-2', '', ''],
+}
+
+// In feeds every review's photos share the same 4:3 frame, so cards stay one size whatever
+// shape the photos are; each photo fills its tile, trimmed at the edges rather than squashed.
+// The full review page shows every photo whole, at its own proportions and never stretched
+// past its real size. Both use the original upload, so the photos lose no quality.
 export default function ReviewPhotos({ ids, name, expanded = false }) {
   const [selected, setSelected] = useState(null)
+  const shown = expanded ? ids : ids.slice(0, 3)
+  const button = (id, index, className) => (
+    <button key={id} type="button" onClick={() => setSelected(index)}
+      aria-label={`View ${name}, photo ${index + 1} full size`}
+      className={`overflow-hidden rounded-md bg-paper focus-visible:outline-2 focus-visible:outline-brand ${className}`}>
+      {expanded
+        ? <Photo id={id} alt={`${name}, photo ${index + 1}`} fit="contain" loading="eager" className="block h-auto max-w-full" />
+        : <Photo id={id} alt={`${name}, photo ${index + 1}`} fit="cover" loading="eager" className="absolute inset-0 size-full" />}
+    </button>
+  )
   return <>
-    <div className={`mt-4 grid gap-2 ${expanded || ids.length === 1 ? 'grid-cols-1' : ids.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
-      {ids.map((id, index) => <button key={id} type="button" onClick={() => setSelected(index)}
-        aria-label={`View ${name}, photo ${index + 1} full size`}
-        className="block w-full overflow-hidden rounded-md bg-paper focus-visible:outline-2 focus-visible:outline-brand">
-        <Photo id={id} alt={`${name}, photo ${index + 1}`} fit="contain" loading="eager"
-          className={expanded || ids.length === 1 ? 'mx-auto block h-auto max-h-[70vh] w-full' : 'aspect-square w-full'} />
-      </button>)}
-    </div>
+    {expanded
+      ? <div className="mt-4 grid justify-items-center gap-3">{shown.map((id, index) => button(id, index, 'block w-fit max-w-full'))}</div>
+      : <div data-photo-frame className="mt-4 grid aspect-[4/3] grid-cols-2 grid-rows-2 gap-1.5">
+          {shown.map((id, index) => button(id, index, `relative ${frameCells[shown.length][index]}`))}
+        </div>}
     <p className="mt-2 text-[10px] text-muted">Select a photo to view full size.</p>
     {selected !== null && <PhotoViewer ids={ids} initialIndex={selected} name={name} onClose={() => setSelected(null)} />}
   </>
