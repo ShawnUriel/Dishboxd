@@ -5,12 +5,6 @@ const specialNames = {
   _: 'underscore',
   '.': 'dot',
   '-': 'hyphen',
-  '!': 'exclamation mark',
-  '?': 'question mark',
-  '*': 'asterisk',
-  '#': 'hash',
-  $: 'dollar sign',
-  '&': 'ampersand',
 }
 
 // Username input with every rule spelled out underneath. Each rule ticks off as it is met,

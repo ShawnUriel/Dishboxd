@@ -19,7 +19,6 @@ async function main() {
     const [, , casey] = sandbox.users
     for (const [user, handle] of [[alex, 'alex.eats'], [casey, 'casey']])
       await sandbox.request(user, '/api/profiles/me/username', { method: 'PUT', body: { handle } })
-    for (const user of sandbox.users) await sandbox.request(user, '/api/profiles/me/tour', { method: 'PUT' })
   }
   await sandbox.request(bea, '/api/profiles/me', {
     method: 'PATCH',
@@ -30,6 +29,9 @@ async function main() {
       topPickIds: [],
     },
   })
+  if (process.env.PREVIEW_ONBOARDING !== '1') {
+    for (const user of sandbox.users) await sandbox.request(user, '/api/profiles/me/tour', { method: 'PUT' })
+  }
   await sandbox.request(bea, '/api/visits', {
     method: 'POST',
     body: {

@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { authClient } from '../../lib/auth.js'
 import { JournalProvider } from '../../state/JournalProvider.jsx'
 import { SettingsProvider } from '../../state/SettingsProvider.jsx'
+import Onboarding from './Onboarding.jsx'
 
 function Loading() {
   return (
@@ -23,9 +24,9 @@ export function RequireAuth() {
   if (!session?.user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
 
   return (
-    <SettingsProvider key={session.user.id}><JournalProvider>
+    <SettingsProvider key={session.user.id}><Onboarding><JournalProvider>
       <Outlet />
-    </JournalProvider></SettingsProvider>
+    </JournalProvider></Onboarding></SettingsProvider>
   )
 }
 

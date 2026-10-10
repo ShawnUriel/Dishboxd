@@ -2,9 +2,9 @@
 // (backend/validate.js), so change both together.
 export const USERNAME_MIN = 3
 export const USERNAME_MAX = 10
-export const USERNAME_SPECIALS = ['_', '.', '-', '!', '?', '*', '#', '$', '&']
+export const USERNAME_SPECIALS = ['.', '_', '-']
 
-const allowed = /^[a-z0-9_.!?*#$&-]+$/
+const allowed = /^[a-z0-9_.-]+$/
 
 // Usernames are saved in lowercase, so the field shows them that way as you type
 export const normalizeUsername = (value) => value.toLowerCase()

@@ -60,7 +60,7 @@ function layout(target, note, width, height) {
 
 // A short guided tour of Home for a new account: a paper note per step, with a pencil arrow
 // pointing at the part of the screen it explains. Escape or "Skip tour" ends it early.
-export default function WelcomeTour({ onDone }) {
+export default function WelcomeTour({ onDone, busy = false, error = '' }) {
   const location = useLocation()
   const navigate = useNavigate()
   const dialog = useRef(null)
@@ -84,20 +84,17 @@ export default function WelcomeTour({ onDone }) {
     if (location.pathname !== '/') navigate('/')
   }, [location.pathname, navigate])
 
-  // Wait for the step's target to appear (Home may still be loading); skip it if it never does
+  // Wait for the journal to load without silently marking an unseen tour complete.
   useEffect(() => {
-    let tries = 0
     const find = () => {
       const element = document.querySelector(`[data-tour="${step.target}"]`)
       const rect = element?.getBoundingClientRect()
       if (rect?.width && rect.height) return setFound({ index, element })
-      if (++tries < 180) frame = requestAnimationFrame(find)
-      else if (last) onDone()
-      else setIndex((value) => value + 1)
+      frame = requestAnimationFrame(find)
     }
     let frame = requestAnimationFrame(find)
     return () => cancelAnimationFrame(frame)
-  }, [index, step.target, last, onDone, location.pathname])
+  }, [index, step.target, location.pathname])
 
   // Follow the target as the page scrolls or resizes
   useLayoutEffect(() => {
@@ -133,7 +130,7 @@ export default function WelcomeTour({ onDone }) {
     return () => observer.disconnect()
   }, [index])
 
-  const ready = Boolean(box && noteSize)
+  const ready = Boolean(target && box && noteSize)
   const placed = ready ? layout(box, noteSize, window.innerWidth, window.innerHeight) : null
   // Focus Next once the note is on screen (a hidden button cannot take focus)
   useEffect(() => {
@@ -148,7 +145,7 @@ export default function WelcomeTour({ onDone }) {
       aria-describedby="tour-body"
       onCancel={(event) => {
         event.preventDefault()
-        onDone()
+        if (!busy) onDone()
       }}
     >
       {ready && (
@@ -173,7 +170,7 @@ export default function WelcomeTour({ onDone }) {
       <div
         ref={noteRef}
         className="tour-note"
-        style={placed ? { left: placed.note.left, top: placed.note.top } : { visibility: 'hidden' }}
+        style={placed ? { left: placed.note.left, top: placed.note.top } : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
       >
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-brand">
           Step {index + 1} of {steps.length}
@@ -184,17 +181,19 @@ export default function WelcomeTour({ onDone }) {
         <p id="tour-body" className="mt-2 font-mono text-sm leading-6 text-muted">
           {step.body}
         </p>
+        {!ready && <p role="status" className="mt-2 text-xs text-muted">Waiting for your journal to load…</p>}
+        {error && <p role="alert" className="mt-3 text-xs text-brand">{error} Try finishing or skipping again.</p>}
         <div className="mt-4 flex items-center gap-2">
-          <button type="button" onClick={onDone} className="mr-auto font-mono text-xs text-accent underline underline-offset-4">
+          <button type="button" disabled={busy} onClick={onDone} className="mr-auto font-mono text-xs text-accent underline underline-offset-4 disabled:opacity-50">
             Skip tour
           </button>
           {index > 0 && (
-            <Button variant="secondary" size="sm" onClick={() => setIndex(index - 1)}>
+            <Button variant="secondary" size="sm" disabled={busy} onClick={() => setIndex(index - 1)}>
               Back
             </Button>
           )}
-          <Button ref={next} size="sm" onClick={() => (last ? onDone() : setIndex(index + 1))}>
-            {last ? 'Done' : 'Next'}
+          <Button ref={next} size="sm" disabled={busy || !ready} onClick={() => (last ? onDone() : setIndex(index + 1))}>
+            {busy ? 'Saving…' : last ? 'Done' : 'Next'}
           </Button>
         </div>
       </div>

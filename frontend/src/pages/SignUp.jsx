@@ -49,7 +49,7 @@ export default function SignUp() {
   return (
     <AuthCard
       title="Sign up"
-      subtitle="Start your food journal"
+      subtitle="Create your account, confirm your email, then pick your username."
       footer={
         <>
           Already have an account?{' '}

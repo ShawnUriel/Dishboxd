@@ -74,14 +74,14 @@ function isUuid(value) {
 // A username someone picks: 3 to 10 characters of letters, numbers and a few special
 // characters, with at least one letter or number. Saved in lowercase, so "Bea" and "bea" are one name.
 // The frontend shows the same rules (frontend/src/lib/username.js).
-const USERNAME_SPECIALS = '_.-!?*#$&'
+const USERNAME_SPECIALS = '_.-'
 
 function username(value) {
   if (typeof value !== 'string') throw new ValidationError('Username must be text.')
   const clean = value.trim().toLowerCase()
   if (clean.length < 3) throw new ValidationError('Username needs at least 3 characters.')
   if (clean.length > 10) throw new ValidationError('Username can be at most 10 characters.')
-  if (!/^[a-z0-9_.!?*#$&-]+$/.test(clean))
+  if (!/^[a-z0-9_.-]+$/.test(clean))
     throw new ValidationError(`Username can use letters, numbers and ${USERNAME_SPECIALS.split('').join(' ')} only, with no spaces.`)
   if (!/[a-z0-9]/.test(clean)) throw new ValidationError('Username needs at least one letter or number.')
   return clean

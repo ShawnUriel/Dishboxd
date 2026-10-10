@@ -19,10 +19,11 @@ test('onboarding: username rules, tour state and the one-time migration', async 
     const { data } = await request(alex, '/api/profiles/me')
     assert.match(data.profile.handle, /^diner_[0-9a-f]{24}$/)
     assert.deepEqual(data.onboarding, { needsUsername: true, needsTour: true })
+    assert.equal((await request(alex, '/api/profiles/me/tour', { method: 'PUT' })).status, 400)
   })
 
   await t.test('usernames follow the 3 to 10 character rule', async () => {
-    for (const handle of ['ab', 'abcdefghijk', 'bea eats', 'bea@eats', 'bea/eats', '!!!', '', 42]) {
+    for (const handle of ['ab', 'abcdefghijk', 'bea eats', 'bea@eats', 'bea/eats', 'bea!', 'bea?', 'bea*', 'bea#', 'bea$', 'bea&', '...', '', 42]) {
       const response = await pick(alex, handle)
       assert.equal(response.status, 400, `${JSON.stringify(handle)} should be refused`)
       assert.match(response.data.error, /^Username/)
@@ -31,9 +32,9 @@ test('onboarding: username rules, tour state and the one-time migration', async 
     assert.equal(saved.status, 200)
     assert.equal(saved.data.profile.handle, 'alex.eats')
     assert.deepEqual(saved.data.onboarding, { needsUsername: false, needsTour: true })
-    const specials = await pick(bea, 'b_-.!?*#$&')
+    const specials = await pick(bea, 'b_-.123456')
     assert.equal(specials.status, 200)
-    assert.equal(specials.data.profile.handle, 'b_-.!?*#$&')
+    assert.equal(specials.data.profile.handle, 'b_-.123456')
   })
 
   await t.test('usernames are unique regardless of capitals', async () => {

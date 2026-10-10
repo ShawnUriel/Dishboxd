@@ -26,6 +26,7 @@ export default function UsernameStep({ onSaved }) {
 
   async function save(event) {
     event.preventDefault()
+    if (busy) return
     if (!isValidUsername(handle)) {
       setError('This username does not follow every rule yet. Each rule gets a tick once it is met.')
       field.current?.focus()
@@ -83,6 +84,7 @@ export default function UsernameStep({ onSaved }) {
             }}
             placeholder="bea.eats"
             invalid={Boolean(error)}
+            disabled={busy}
             required
           />
           <p className="mt-5 font-mono text-sm text-muted">
@@ -101,7 +103,7 @@ export default function UsernameStep({ onSaved }) {
           </Button>
           <p className="mt-4 text-center font-mono text-xs text-muted">
             You can change it later on your profile.{' '}
-            <button type="button" onClick={logOut} className="text-accent underline underline-offset-4">
+            <button type="button" disabled={busy} onClick={logOut} className="text-accent underline underline-offset-4 disabled:opacity-50">
               Log out
             </button>
           </p>

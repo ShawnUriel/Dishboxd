@@ -72,7 +72,8 @@ router.put('/me/username', async (req, res) => {
 // PUT /api/profiles/me/tour: the welcome tour was finished or skipped, so it never shows again
 router.put('/me/tour', async (req, res) => {
   await ensureProfile(req.userId)
-  await pool.query('UPDATE profiles SET tour_done_at = COALESCE(tour_done_at, now()) WHERE user_id = $1', [req.userId])
+  const { rowCount } = await pool.query('UPDATE profiles SET tour_done_at = COALESCE(tour_done_at, now()) WHERE user_id = $1 AND handle_set_at IS NOT NULL', [req.userId])
+  if (!rowCount) throw new ValidationError('Choose a username before completing the tour.')
   res.json(await loadMe(req.userId))
 })
 
