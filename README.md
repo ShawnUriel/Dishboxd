@@ -10,7 +10,7 @@ Built with heavy help from **Claude Code**, which wrote most of the original app
 
 Dishboxd is a Letterboxd-style food and dining journal. Remember where you ate, what you ordered and how it tasted, with your own photos from each visit. Keep entries private or share selected reviews with other diners, follow their journals and collect your favourite restaurants on your profile.
 
-**Current stage: working journal, item-by-item reviews and a social layer.** Accounts use [Neon Auth](https://neon.com/docs/neon-auth), with verified email or Google sign-in. Entries, uploaded photos, stickers, profiles, follows, likes, reposts and co-reviews persist through Express into Neon Postgres. Every item on a ticket gets its own score out of 10 (past 10 sets the review on fire), restaurants are sorted into categories, prices are in Philippine pesos, and the ticket is filled in on a plate at a dining table. Home combines your journal with Following and Discover feeds, restaurant suggestions and the existing paper/index-card design. Google restaurant search is optional; a new entry can also be filled in directly.
+**Current stage: deployed on Vercel, with a working journal, item-by-item reviews and a social layer.** Accounts use [Neon Auth](https://neon.com/docs/neon-auth), with verified email or Google sign-in, and an emailed code is required at every new sign-in before the journal opens. New accounts pick a username and get a short guided tour. Entries, uploaded photos, stickers, profiles, follows, likes, reposts, co-reviews, comments, notifications, bookmarks and settings persist through Express into Neon Postgres. Every item on a ticket gets its own score out of 10 (past 10 sets the review on fire), restaurants are sorted into categories, prices are in Philippine pesos, and the ticket is filled in on a plate at a dining table. Home combines your journal with For you, Yours and Discover feeds of uniform, Instagram-style review cards, plus keepsakes such as a food passport. Settings offer light and dark themes and private accounts. Google restaurant search is optional; a new review can also be filled in directly.
 
 ## 2. Setup and installation
 
@@ -94,15 +94,13 @@ cp backend/.env.example backend/.env
 | Variable | Example value | What it does |
 | --- | --- | --- |
 | `PORT` | `5000` | Port the Express server listens on. Defaults to `5000`. |
-| `CLIENT_ORIGIN` | `http://localhost:5173` | The only website allowed to call the API from a browser (CORS). Defaults to `http://localhost:5173`; on Vercel, set it to the site's address. |
+| `CLIENT_ORIGIN` | `http://localhost:5173` | The only website allowed to call the API from a browser (CORS). The API also sends it as the origin of its email-code requests to Neon Auth, so it must be one of Neon Auth's trusted domains. Defaults to `http://localhost:5173`; on Vercel, set it to the site's address (`https://dishboxd.vercel.app`). |
 | `DATABASE_URL` | `postgresql://user:password@host/neondb?sslmode=verify-full` | Your Neon connection string (Connect button in the console, or `neon connection-string`). **Secret.** |
 | `NEON_AUTH_URL` | same as `VITE_NEON_AUTH_URL` | Used to check login tokens against Neon Auth's public keys. Not a secret. |
 | `GOOGLE_PLACES_API_KEY` | `your_api_key_here` | Google Places API (New) key for the restaurant search. Optional: while it is missing or still the placeholder, search is limited to restaurants on file and ones you add by hand. **Secret**: it is only used by the backend and never reaches the browser. |
 | `GOOGLE_PLACES_REGION` | `ph` | Two-letter country code. Google only suggests places in that country. Leave empty to search everywhere. |
 
 ### Database setup
-
-The community upgrade adds notifications, private bookmarks, review comments, notification preferences, and review revision tracking. Run the setup below before starting or deploying this version. It preserves existing data; previous follows and reposts are not backfilled as new alerts.
 
 Neon Auth's own tables (`neon_auth.user`, `neon_auth.session` and so on) are created when you enable Neon Auth. Create or upgrade Dishboxd's tables from the backend folder:
 
@@ -111,24 +109,31 @@ cd backend
 npm run db:setup
 ```
 
-It runs `backend/database_setup.sql` in a transaction and is safe to run again. **Run this before deploying an upgrade**, because the new code reads the new columns and tables. Upgrades are additive and keep existing data: the profile/photo upgrade added three tables and a sharing flag (existing visits stay private); the item-review upgrade adds a score and note to each dish (old dishes stay unscored), a category to each restaurant (empty until sorted), allows any colour for boxes, and adds five tables for stickers, likes, reposts and co-authors. The top-picks upgrade adds a `top_picks` table and moves each earlier pick into it, filed under its place's category (uncategorised ones become "Favourite #1", "Favourite #2"…). The fourteen tables:
+It runs `backend/database_setup.sql` in a transaction and is safe to run again. **Run this before deploying an upgrade**, because the new code reads the new columns and tables; deploying first breaks the pages that need them until the setup runs. Upgrades are additive and keep existing data (for example, existing visits stay private, old dishes stay unscored, and earlier top picks are filed under their place's category). The 21 tables:
 
 | Table | Holds |
 | --- | --- |
 | `restaurants` | A restaurant a user filed: catalog number (R-001…), name, address, category (Cafe, Matcha bar…; empty until sorted), and `google_place_id`, which is empty for places added by hand. |
-| `visit_logs` | One visit (ticket): restaurant, date, 1–5 overall rating, notes and an explicit sharing flag (private by default). |
+| `visit_logs` | One visit (ticket): restaurant, date, 1–5 overall rating, notes, an optional cuisine tag, an explicit sharing flag (private by default), and a revision number and edit time for safe editing. |
 | `dishes` | The items on a ticket, in order, each with its price in pesos, its own score (0–12, where 10 is perfect and past 10 is "on fire") and a note. |
 | `boxes` | A user's card catalog boxes: title, description, colour (one of five names or any `#rrggbb`), public or private. |
 | `box_restaurants` | Which restaurants are filed in which box. |
-| `profiles` | Unique username, display name, bio and avatar reference. (Its old `top_pick_ids` list is emptied once moved to `top_picks`.) |
+| `profiles` | Unique username, display name, bio, avatar reference and the private-account switch, plus when the username was chosen and the tour finished (onboarding). |
 | `top_picks` | Up to eight top picks per diner, one per category: the category, the restaurant (one of their own) and its must-order dish, in the diner's order. |
 | `follows` | Follower/following relationships; duplicate follows and self-follows are prevented. |
-| `media` | Compressed JPEG bytes and ownership, attached to a profile or review. |
+| `media` | Uploaded JPEG bytes (up to 4 MB, re-encoded at high quality) and ownership, attached to a profile or review. |
 | `stickers` | A user's sticker book: small transparent PNGs made in the browser, with the style used (just the image, pixelated, vector or translucent). |
-| `sticker_placements` | Where a sticker is stuck: exactly one of the user's own profile, reviews, boxes or dishes, with position, tilt and size. |
+| `sticker_placements` | Where a sticker is stuck: exactly one of the user's own profile, reviews, boxes, dishes or Home sticker corner, with position, tilt and size. |
 | `review_likes` | Which diner liked which review, once each. |
 | `review_reposts` | Which diner reposted which review to their followers, once each. |
 | `visit_coauthors` | The one friend invited to co-author a review, pending until they accept. |
+| `review_comments` | Comments and replies on reviews (up to 1,000 characters); a removed comment keeps its place so replies keep their context. |
+| `notifications` | In-app alerts for follows, reposts, comments, replies and co-review invites, with when each was read. |
+| `notification_preferences` | Which alerts a diner wants, and the saved email-digest frequency. |
+| `bookmarks` | A diner's private want-to-try places. |
+| `account_settings` | Theme (system, light or dark), reduced motion and whether new reviews start shared. |
+| `email_login_sessions` | Email-code receipts: the hash of each sign-in's receipt, bound to one account, email address and Neon session. |
+| `email_login_challenges` | The pending sign-in code for each account: when it was sent, how many tries are left and whether it was used. |
 
 Journal records and profiles belong to Neon Auth users, and account deletion cascades through their data. Composite foreign keys prevent visits and box entries from mixing users' restaurants, and stop anyone from placing another user's sticker or decorating another user's box. The API checks ownership before attaching a photo or a sticker. UUIDs identify records; authorization checks protect private data.
 
@@ -189,7 +194,7 @@ Dishboxd deploys as **one Vercel project with two services**, set up in the root
 
 1. In Vercel, choose **Add New → Project** and import the repository. Leave the Root Directory as the repository root; Vercel reads `vercel.json`.
 2. Add the environment variables, which both services share: `DATABASE_URL`, `NEON_AUTH_URL`, `GOOGLE_PLACES_API_KEY`, `GOOGLE_PLACES_REGION`, `VITE_NEON_AUTH_URL`, and `CLIENT_ORIGIN` set to the site's address. Do not set `VITE_API_URL`: production builds call `/api` on the same site.
-3. Run `npm run db:setup` from the backend against the deployment database before deploying new schema changes (including this item-review upgrade). Deploy, then add the site's address to Neon Auth's trusted domains (`neon neon-auth domain add …`), or login and Google sign-in will not work there.
+3. Run `npm run db:setup` from the backend against the deployment database before deploying any schema change. Deploy, then add the site's address to Neon Auth's trusted domains (`neon neon-auth domain add …`), or login and Google sign-in will not work there.
 
 Only variables whose names start with `VITE_` are built into the browser code, so the secrets stay on the server even though both services can see them.
 
@@ -204,12 +209,12 @@ Every journal page needs you to be logged in. The journal starts empty, and ever
 - **Continue with Google** (on both pages): establishes the Google login, then asks for the email code too. This keeps linked accounts subject to the same journal-access check.
 - **Signup confirmation** reuses its existing code for the API's email receipt before Neon consumes it. New users go directly to username setup after confirming, without a second email.
 - **Pick a username**: straight after a new account first opens the journal, a card asks for a username before anything else. It is **3 to 10 characters** of letters, numbers and the special characters `. _ -`, with no spaces and at least one letter or number. Capitals are saved as lowercase. Each rule ticks off as you type, and a name someone else has is refused. A short tour follows (see [Onboarding](#onboarding)).
-- **Log out**: the link under the title on **The Log**.
+- **Log out**: the **Log out** link at the top right of **The Log**, or **Sign out** in Settings.
 - Each account owns its journal. Other signed-in diners can see only reviews explicitly shared by their author. Switching accounts clears the previous user's journal from memory.
 
 ### Primary flow: log a visit
 
-1. On **The Log** (`/`), click **+ NEW ENTRY**.
+1. On **The Log** (`/`), click the **New review** button (bottom right).
 2. The **Dishboxd Ticket** (`/log/new`) opens immediately, lying on a plate on a gingham tablecloth (with a napkin and cutlery on wide screens). Enter the restaurant name and optional address (if it is already in your journal, **Use it** files the visit under that place; **+ NEW ENTRY** on a restaurant page does the same), and pick a **category** with one tap (Cafe, Matcha bar, Italian…) or type your own. Typing the restaurant name searches as you go: places already in your journal come first, then Google Maps places to eat with a photo and their photo credit (arrow keys and Enter work too). Choosing a Google place fills in its name, address and a suggested category, and its photo appears across the top of the ticket with its credits; when Google has no photo, the ticket looks as before. A name that matches nothing is kept as typed, for places not on Google Maps. Changing the name after choosing a Google place turns it into a place added by hand.
 3. Optionally, **Choose a box from your collection** to file the restaurant in one of your boxes (or **+ Create a new box** right there). It is optional: leave it on **No box** and the review is saved without one. Choose the visit date and overall star rating. Each item you ordered gets its own container: its name, price in pesos, **its own score out of 10**, a note ("Silky, not too sweet"), and optionally one sticker you can drag anywhere on it. Write your review and upload up to three photos from that visit. **Ate with a friend?** invites one friend to co-author the review. Leave **Share on my profile** unchecked for a private entry, or check it to share the review, items, notes and photos with signed-in diners. Click **STAMP & SUBMIT**. Validation keeps the form available if something needs fixing. At a previously visited restaurant, dish suggestions come from your own past tickets.
 4. You land on the restaurant's profile (`/restaurant/:id`), with the new visit in **Visit history**. Its **+ NEW ENTRY** stamp logs another visit at the same restaurant. A restaurant found through Google has a **Menu & info on Google Maps** link, which opens its Google Maps page (menu, photos and opening hours, when the restaurant has them) in a new tab.
@@ -261,15 +266,20 @@ The uploader accepts JPEG, PNG and WebP files up to 12 MB. Review photos retain 
 | --- | --- | --- |
 | `/login` | Log in | Email and password, or **Continue with Google** |
 | `/signup` | Sign up | Name, email and password, or **Continue with Google** |
-| `/verify-email` | Check your email | Enter the emailed code; **Send a new code** |
-| `/` | The Log | Welcome card, statistics, For you/Yours/Discover review feeds, suggestions and **NEW ENTRY** |
+| `/verify-email` | Check your email | Enter the code that confirms a new account's email; **Send a new code** |
+| `/verify-login` | Confirm your sign-in | Enter the code emailed at each new sign-in, before the journal opens |
+| `/` | The Log | Welcome card, statistics, keepsakes, For you/Yours/Discover feeds of uniform review cards, suggestions and the **New review** button. New accounts see the username step and the guided tour here |
+| `/bookmarks` | Want to try | Your private bookmarked places, with **Been here? Write a review** |
+| `/settings` | Settings | Appearance, reduced motion, account privacy, default sharing, profile, password, the guided tour again, journal export and sign-out |
+| `/settings/notifications` | Notification settings | Which alerts you get, and the email-digest preference |
 | `/search` | Card Catalog | Matching journal/Google restaurants with category tags, **On file by category** chips, real photos with credits, and a NEW card to add a restaurant yourself |
 | `/log/new` | Dishboxd Ticket | On a plate at the table: Google photo (when available), restaurant fields, category, visit date, rating, one container per item (price, score, note, sticker), review, photos, co-author invite and optional sharing |
 | `/profile` | My profile | Editable name, username, bio, avatar, top picks and stickers (**Decorate**); reviews (incl. accepted co-reviews), reposts, restaurants and connections |
-| `/profile/:id` | Diner profile | Shared reviews and co-reviews, reposts, reviewed restaurants by category, top picks, follower/following lists and a follow button |
+| `/friends/:id` | Diner profile | Shared reviews and co-reviews, reposts, reviewed restaurants by category, top picks, follower/following lists and a follow button (`/profile/:id` redirects here) |
 | `/friends` | Friends | Friends, follow-backs, following, the diner directory and co-review invites |
 | `/people` | (redirect) | Opens **Find diners** on the Friends page |
-| `/review/:id` | One review | A single review, where shared links land, with likes, reposts and co-review controls |
+| `/review/:id` | Full review | Where a feed card or shared link opens: every item, the whole notes, every photo whole (with a viewer), likes, reposts, comments, and for the author sharing, stickers, co-author, **Edit review** and **Delete review** |
+| `/review/:id/edit` | Edit review | The ticket editor for the review's original author |
 | `/restaurant/:id` | Restaurant profile | Photo, catalog number, category (**Change**), average rating, **Menu & info on Google Maps** (Google places only), top dishes with average scores, visit history with item scores, **+ FILE IN A BOX**, **+ NEW ENTRY** |
 | `/lists` | The Card Catalog | Layered folder cards in each box's colour, with descriptions and stickers, collection counts, search/filter/sort controls and **New box** |
 | `/lists/:id` | Box open | Colour-matched folder header with **Edit box** (name, description, colour) and **Stickers**, visit/rating statistics and restaurant photo cards |
@@ -298,6 +308,14 @@ This is an application-level email step using [Neon's managed email OTP endpoint
 | Method | Path | Body | What it does | Success |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/test` | | Proves the server is running. No login needed. | `200` |
+| `POST` | `/api/auth/email/signup-receipt` | `{ email, otp }` | During sign-up only: checks the account-confirmation code for an account whose email is not confirmed yet, and sets a short-lived receipt so no second code is needed. No login needed. | `200`, `400`, `409` |
+| `GET` | `/api/auth/email/status` | | Whether this sign-in has passed the email code, whether a code is pending, and how long until another can be sent. Needs a login, not the code. | `200` `{ verified, email, sent, retryAfter }` |
+| `POST` | `/api/auth/email/send` | | Emails a sign-in code to the account's own address (at most one every 30 seconds) | `200`, `429`, `503` |
+| `POST` | `/api/auth/email/verify` | `{ otp }` | Checks the code (three tries per code) and sets the HttpOnly receipt cookie | `200` `{ verified: true }`, `400`, `429` |
+| `POST` | `/api/auth/email/logout` | | Deletes this sign-in's receipt and clears its cookie | `200` |
+| `GET` / `PATCH` | `/api/settings` | PATCH: any of `{ theme, reduceMotion, defaultReviewPublic, isPrivate }` | Loads or saves the account's appearance, sharing default and privacy | `200` `{ settings }` |
+| `GET` | `/api/notifications?before=<id>` | | The signed-in diner's alerts, newest first, with the unread count | `200` |
+| `PATCH` | `/api/notifications/:id/read`, `/api/notifications/read` | For `/read`: `{ through }` | Marks one alert, or every alert up to `through`, as read | `200` |
 | `GET` | `/api/restaurants` | | The user's restaurants, by catalog number, with categories | `200` |
 | `PATCH` | `/api/restaurants/:id` | `{ category }` | Sorts one of the user's restaurants into a category (empty clears it) | `200` `{ restaurant }` |
 | `GET` | `/api/visits` | | The user's visits, newest first, each with its items (score, note, sticker), photos, stickers, likes, reposts and co-author | `200` |
@@ -334,12 +352,14 @@ This is an application-level email step using [Neon's managed email OTP endpoint
 | `POST` | `/api/boxes` | `{ title }` | Makes an empty box (colours rotate) | `201` `{ box }` |
 | `PATCH` | `/api/boxes/:id` | `{ title?, description?, color? }` | Renames, describes or recolours a box; `color` is one of the five names or `#rrggbb` | `200` `{ box }` |
 | `GET` | `/api/stickers` | | The user's sticker book, newest first | `200` `{ stickers }` |
+| `GET` | `/api/stickers/home` | | The stickers in the user's own Home sticker corner | `200` |
 | `POST` | `/api/stickers?style=pixel` | Raw PNG, `Content-Type: image/png` | Adds a sticker (`style`: `original`, `pixel`, `vector` or `translucent`); up to 60 per user | `201` `{ sticker }` |
 | `GET` / `DELETE` | `/api/stickers/:id/image`, `/api/stickers/:id` | | Reads a sticker the user may see, or deletes an owned one (peeling it off every card) | `200` |
-| `POST` | `/api/stickers/placements` | `{ stickerId, target: { type, id }, x, y, rotation, scale }` | Sticks an owned sticker on the user's own `profile`, `visit`, `box` or `dish` (x/y are 0–100 % of the card, tilt −45–45°, size 0.5–2) | `201` `{ placement }` |
+| `POST` | `/api/stickers/placements` | `{ stickerId, target: { type, id }, x, y, rotation, scale }` | Sticks an owned sticker on the user's own `profile`, `visit`, `box`, `dish` or `home` sticker corner (x/y are 0–100 % of the card, tilt −45–45°, size 0.5–2) | `201` `{ placement }` |
 | `PATCH` / `DELETE` | `/api/stickers/placements/:id` | For PATCH: any of `{ x, y, rotation, scale }` | Moves, tilts, resizes or peels off one of the user's stickers | `200` |
 | `POST` | `/api/boxes/:id/restaurants` | `{ restaurantId }` | Files a restaurant in a box | `201`, or `200` if it was already there |
 | `GET` | `/api/places/autocomplete?q=jollibee` | | Asks Google Places for up to five places to eat matching `q` (2–100 characters). The backend adds the API key, so the browser never sees it. At most 30 searches a minute per user. | `200` `{ places: [{ placeId, name, address, category }] }` (`category` is a suggestion from Google's place types) |
+| `GET` | `/api/places/:placeId/cuisine` | | Suggests a cuisine tag for a Google place from its place types (only `types` and `primaryType` are requested) | `200` |
 | `GET` | `/api/places/:placeId/photo` | | Fresh Google photo lookup, up to 30 per user per minute; `?size=large` asks for the wider image used on the ticket. Returns safe public image/source links and author credits; never the API key or photo resource name. | `200` `{ photo: null }` or `{ photo: { url, sourceUrl, attributions } }` |
 
 **Errors** are always JSON like `{"error":"Rating must be a whole number from 1 to 5."}`:
@@ -347,18 +367,19 @@ This is an application-level email step using [Neon's managed email OTP endpoint
 | Status | When |
 | --- | --- |
 | `400` | Invalid input (rating not 1–5, an item score that is not a whole number from 0 to 12, no dishes or more than 20, blank names, price outside ₱0–10,000, a future or impossible date, an over-long text, a box colour that is not a preset or `#rrggbb`, a sticker position out of range, a co-author who is not a friend, more stickers than allowed), or a body that is not valid JSON |
-| `401` | No login token, or an expired or tampered one |
+| `401` | No login token, an expired or tampered one, or a Neon session that has ended |
+| `403` | Logged in, but this sign-in's email code has not been entered yet (`{"code":"EMAIL_CODE_REQUIRED"}`); the app then opens **Confirm your sign-in** |
 | `404` | The restaurant, box, sticker or review does not exist **or belongs to someone else / is private** (the API never reveals which), or an unknown path |
 | `409` | A profile username is already taken, or a review already has an accepted co-author |
 | `413` | JSON body over 64 KB, a JPEG upload over 4 MB or a sticker over 400 KB |
-| `429` | More than 30 Google searches or photo lookups a minute, or 30 photo uploads in ten minutes. `Retry-After` says how long to wait. |
+| `429` | More than 30 Google searches or photo lookups a minute, more than 30 photo uploads or 30 new stickers in ten minutes, more than 20 comments a minute, a new sign-in code requested within 30 seconds, or a code with no tries left. `Retry-After` (or `retryAfter`) says how long to wait. |
 | `500` | Anything unexpected. Details are logged in the backend terminal only, never sent to the browser. |
 | `502` | Google did not answer or returned an error (Google's message is logged in the backend terminal only) |
-| `503` | `GOOGLE_PLACES_API_KEY` is not set, so Google search is off |
+| `503` | `GOOGLE_PLACES_API_KEY` is not set, so Google search is off; or Neon's email service could not send or check a code |
 
 ### Not built yet
 
-Sharing a public box by link, editing a saved review's text/date/items (item stickers can be changed), deleting visits and boxes, and notifications for likes, reposts and invites. Review visibility, box names/descriptions/colours, categories and stickers can already be changed.
+Sharing a public box by link, deleting boxes, notifications for likes, a "forgot password" page, and sending the email digest (the preference is saved, but no email goes out yet). Reviews can already be edited and deleted by their author, and review visibility, box names/descriptions/colours, categories and stickers can be changed.
 
 ### Verification
 
@@ -370,9 +391,9 @@ cd ../backend
 npm test
 ```
 
-Backend integration tests use real Postgres in a temporary schema and fixture authentication. Set `TEST_DATABASE_URL`, or configure `backend/.env`; the database role must be allowed to create schemas. The harness removes the temporary schema afterwards and does not modify real accounts or journals. Tests cover private/public review access, photo ownership, transactional saves, follows, profile validation, avatars and repeatable migrations, plus item scores and notes (including the 0–12 range), categories, box editing, sticker ownership and visibility, likes, reposts, friends and co-reviews (`test/features.test.js`). Separate Google-photo tests stub the upstream service to check authentication, timeouts, missing photos, attribution, unsafe links and key nonexposure without billed requests. Run only those with `node --test test/places.test.js` from `backend`. These tests do not test Neon signup or login.
+Backend integration tests use real Postgres in a temporary schema and fixture authentication. Set `TEST_DATABASE_URL`, or configure `backend/.env`; the database role must be allowed to create schemas. The harness removes the temporary schema afterwards and does not modify real accounts or journals. Tests cover private/public review access, photo ownership, transactional saves, follows, profile validation, avatars and repeatable migrations, plus item scores and notes (including the 0–12 range), categories, box editing, sticker ownership and visibility, likes, reposts, friends and co-reviews (`test/features.test.js`). Separate Google-photo tests stub the upstream service to check authentication, timeouts, missing photos, attribution, unsafe links and key nonexposure without billed requests. Run only those with `node --test test/places.test.js` from `backend`. Later suites cover community features, notifications, co-review invites, Home keepsakes, settings and private accounts, onboarding (`test/onboarding.test.js`), and the email code at sign-in (`test/email-auth.test.js`: session binding, receipts that cannot be forged or moved, resend and attempt limits, and the signup receipt). `npm test` runs all 112. The email-code tests use a stand-in for Neon's email service, so a real sign-in on the live site is still the final check; the tests do not exercise Neon's real sign-up or login.
 
-For an isolated browser preview, run `node test/browser-preview.cjs` from `backend` and open `http://127.0.0.1:5173`. It uses real API routes and a temporary database schema with local fixture accounts; production authentication remains unchanged. Type `stop` in its terminal to clean up. Browser checks covered profile editing, avatar/review uploads, top picks, following, reload persistence and mobile layouts; for the item-review upgrade they also covered the ticket on its plate with a Google photo, item containers with scores and fire, making and placing stickers, box editing, the Friends page, invites, likes and reposts, at desktop and phone widths.
+For an isolated browser preview, run `node test/browser-preview.cjs` from `backend` and open `http://127.0.0.1:5173`. It uses real API routes and a temporary database schema with local fixture accounts; production authentication remains unchanged. Type `stop` in its terminal to clean up; a run that is killed instead leaves its `dishboxd_test_…` schema behind, which can be dropped later. Start it with `PREVIEW_ONBOARDING=1` to see the username step and tour as a new account. Browser checks covered profile editing, avatar/review uploads, top picks, following, reload persistence and mobile layouts; for the item-review upgrade they also covered the ticket on its plate with a Google photo, item containers with scores and fire, making and placing stickers, box editing, the Friends page, invites, likes and reposts, at desktop and phone widths.
 
 ## 5. Project structure
 
@@ -436,33 +457,42 @@ Dishboxd/
 ├── vercel.json                  Vercel services: /api/* goes to the backend, everything else to the frontend
 ├── .gitignore                   Keeps .env, node_modules and build output out of git
 ├── frontend/                    React app (Vite)
-│   ├── index.html               Page shell that loads the React app
+│   ├── index.html               Page shell; applies the saved light/dark theme before the first paint
 │   ├── .env.example             Placeholders for VITE_NEON_AUTH_URL and VITE_API_URL
+│   ├── public/                  favicon.ico and apple-touch-icon.png (the Dishboxd box)
 │   └── src/
 │       ├── main.jsx             Entry point; loads fonts and styles, mounts <App />
-│       ├── App.jsx              Routes: log-in pages, and the journal pages behind the login check
-│       ├── index.css            Design tokens (@theme) and paper textures
+│       ├── App.jsx              Routes: log-in and code pages, and the journal pages behind the login check
+│       ├── index.css            Design tokens (@theme), paper textures and the compact review card
+│       ├── theme.css            Dark theme, reduced motion and navigation styles
+│       ├── assets/              logo.png, the full Dishboxd logo on the log-in pages
 │       ├── components/
-│       │   ├── atoms/           Button, TextField, RatingCircle, StarRating, Stamp, Tag, Flames, ScoreBadge, CategoryTag,
-│       │   │                    StickerImage, TableSetting, ...
-│       │   ├── molecules/       GoogleButton, VisitLogCard, SearchResultItem, ManualPlaceForm, DishCard, ScoreInput, CategoryField, ReviewCard,
-│       │   │                    ReviewActions, CoauthorControls, CoauthorPicker, StickerLayer, StickerTray, StickerMaker, BoxColorPicker,
-│       │   │                    TicketPlacePhoto, ListCard, PersonCard, RestaurantCard
-│       │   └── organisms/       AuthGate (login check), AuthCard, Navbar, VisitLogFeed, SearchAutocomplete, DishEntryList, RestaurantHeader, ListGrid
-│       ├── pages/               Account pages, Home, Search, VisitForm, RestaurantProfile, Profile, Friends, ReviewPage, Lists, ListDetail, NotFound
-│       ├── state/               JournalProvider + useJournal: restaurants, visits, boxes and the sticker book in memory (starts empty, one per account)
-│       └── lib/                 auth.js, api.js (calls the backend with the login token), formatting (pesos), stats, scores, categories, colors,
-│                                stickers (in-browser sticker making), share, and hooks for sticker placements and Google place photos
+│       │   ├── atoms/           Button, TextField, Photo, RatingCircle, StarRating, Stamp, Tag, Flames, ScoreBadge, CategoryTag,
+│       │   │                    StickerImage, TableSetting, PencilArrow, PrivateBadge, FoodSticker, ...
+│       │   ├── molecules/       ReviewCard, ReviewPhotos, ReviewActions, CoauthorControls, CoauthorPicker, BookmarkButton, UsernameField,
+│       │   │                    GoogleButton, SearchResultItem, ManualPlaceForm, RestaurantNameField, DishCard, ScoreInput, CategoryField,
+│       │   │                    CuisineField, StickerLayer, StickerTray, StickerMaker, BoxColorPicker, PersonCard, ListCard, ...
+│       │   └── organisms/       AuthGate (login and email-code checks), AuthCard, Onboarding, UsernameStep, WelcomeTour, Navbar,
+│       │                        NotificationBell, InviteBanner, ReviewComments, PasswordSettings, FoodPassport, HomeStickerCorner, ...
+│       ├── pages/               Login, SignUp, VerifyEmail, VerifyLogin, Home, Search, VisitForm, EditReview, ReviewPage, RestaurantProfile,
+│       │                        Profile, Friends, Lists, ListDetail, Bookmarks, Settings, NotificationSettings, NotFound
+│       ├── state/               JournalProvider (the journal in memory, one per account) and SettingsProvider (theme and preferences)
+│       └── lib/                 api.js (calls the backend with the login token and session), auth.js, username.js (the username rule),
+│                                redirects.js, format.js (pesos and dates), photos.js (preparing uploads), passport.js, stickers.js, ...
 └── backend/                     Express API
-    ├── server.js                Server setup, CORS, routes, error handling
-    ├── auth.js                  requireUser: checks the Neon Auth token on every journal route
-    ├── validate.js              Server-side input checks (text, numbers, prices, dates, ids)
+    ├── server.js                Server setup, CORS, the login gate in front of every journal route, error handling
+    ├── auth.js                  requireUser (checks the Neon Auth token) and loadSession (checks the Neon session is still active)
+    ├── email-session.js         The email-code receipt cookie, and requireEmail on every journal route
+    ├── neon-email.js            Calls Neon Auth's email-code endpoints from the server
+    ├── validate.js              Server-side input checks (text, numbers, prices, dates, ids, usernames)
     ├── db.js                    Postgres connection pool and a transaction helper
-    ├── rateLimit.js             perUserLimit: caps how often one user can call a route (used on Google search)
-    ├── routes/                  restaurants.js, visits.js, boxes.js, places.js, profiles.js, media.js, stickers.js, reviews.js
+    ├── rateLimit.js             perUserLimit: caps how often one user can call a route (search, photos, uploads, stickers, comments)
+    ├── routes/                  restaurants, visits, boxes, places, profiles, media, stickers, reviews, comments, bookmarks,
+    │                            notifications, settings and email-auth
     ├── social.js                Profile/review query columns, visibility rules and response formatting
-    ├── test/                    Isolated Postgres integration checks and browser preview
-    ├── database_setup.sql       CREATE TABLE commands (run with npm run db:setup)
+    ├── cuisines.js              Maps Google place types to cuisine tags, for the ticket's cuisine suggestion
+    ├── test/                    Isolated Postgres integration tests, the test sandbox and the browser preview
+    ├── database_setup.sql       CREATE TABLE commands and additive upgrades (run with npm run db:setup)
     ├── setup-db.js              Runs database_setup.sql against DATABASE_URL
     └── .env.example             Placeholder environment variables
 ```
@@ -480,8 +510,9 @@ The app is live on Vercel at <https://dishboxd.vercel.app>. Accounts, journal fo
 
 **Known issues**
 
-- **Development-only sign-in settings.** Google sign-in uses Neon's shared keys, so Google's consent screen shows Neon's name and logo. Verification emails come from Neon's shared sender (`auth@mail.myneon.app`). Before launch: my own Google OAuth keys, my own email provider, and my site's address added to Neon Auth's trusted domains.
-- **Neon Auth's JavaScript package is a beta** (`@neondatabase/auth` 0.5), so its API may change. It also makes the app bundle about 630 KB, which Vite warns about.
+- **Development-only sign-in settings.** Google sign-in uses Neon's shared keys, so Google's consent screen shows Neon's name and logo. Verification and sign-in codes come from Neon's shared sender (`auth@mail.myneon.app`), and the sign-in code arrives in Neon's "verify your email" wording, because it reuses that email. Before a real launch: my own Google OAuth keys and my own email provider.
+- **The email code at sign-in has side effects at Neon.** Each successful code check also starts an extra Neon session that the app never uses; it expires after seven days. Neon limits its code endpoints to three requests a minute per IP; the API passes each diner's IP along, but whether Neon applies the limit per diner has not been confirmed, so many people signing in within the same minute may see "Too many attempts".
+- **Neon Auth's JavaScript package is a beta** (`@neondatabase/auth` 0.5), so its API may change. The app bundle is now about 870 KB, which Vite warns about.
 - **No "forgot password" page yet.**
 - **Google search misses some places.** Google sends at most five suggestions per search, and Dishboxd hides the ones that are not places to eat (in testing, "SM City Clark" and "Holy Angel University" were hidden correctly). A restaurant that Google files only as a generic "establishment" is hidden too; one Mang Inasal branch was. Google also may not know a name the way you type it ("Starbucks Marquee Mall" found nothing). In those cases the restaurant can still be added by hand.
 - **Search leans toward Angeles City.** Without a location, Google favours places near the computer that asks, which would be the hosting company's data centre once deployed. So every search leans toward a 5 km circle around Angeles City (`SEARCH_AREA` in `backend/routes/places.js`). It is a bias, not a limit: places farther away still show up when their name matches, but someone searching from another city gets Angeles branches first.
@@ -491,23 +522,26 @@ The app is live on Vercel at <https://dishboxd.vercel.app>. Accounts, journal fo
 - **Stickers live in Postgres**, like photos: up to 60 per user at 400 KB each. Background cut-out works on plain backdrops; busy photos are kept whole (the preview shows the result before saving).
 - **Co-reviews have one co-author**, who must be a friend (both follow each other) and accept first. Shared review links open only for signed-in diners.
 - **Scores past 10 stop at 12.** Prices are pesos, up to ₱10,000 per item.
-- **Rate limits use server memory.** Google searches and photo uploads are limited per user, but their counters reset on restart and are not shared between Vercel instances. Other journal routes have no rate limit.
+- **Most rate limits use server memory.** Google searches, photo and sticker uploads and comments are limited per user, but those counters reset on restart and are not shared between Vercel instances. The sign-in code limits are kept in the database, so they hold across instances. Other journal routes have no rate limit.
 - **Social lists are bounded.** Feeds/recent reviews show the latest 20 entries, reviewed restaurants up to 100, and each connection list up to 100. Pagination is a future improvement.
-- **The app's database role owns the tables.** It connects as Neon's default owner role rather than a role with only the permissions it needs (security checklist row 15).
-- **The third tab is "COLLECTIONS"**. My mockups called it "TRAY" on some screens and "BOXES" on others; it was renamed to Collections, and its address stays `/lists`.
+- **The app's database role owns the tables.** It connects as Neon's default owner role rather than a role with only the permissions it needs, and the database accepts connections from any IP, protected by its password and TLS (security checklist rows 14 and 15).
+- **The third tab is "COLLECTIONS"**. My mockups called it "TRAY" on some screens and "BOXES" on others; it was renamed to Collections, and its address stays `/lists`. With six tabs, its label is wider than its tab on 320-pixel phones.
+- **Feed cards crop photos.** Each feed card shows its first photo as a square, so wide and tall photos lose their edges there; the full review shows every photo whole.
+- **The logo's wordmark is dark brown**, so it is hard to read on the log-in page in dark mode.
 
 **Next steps**
 
-1. Use the user's own location for Google searches (if they allow it) instead of always Angeles City.
-2. Box deletion and a public link for public boxes; finish email-digest provisioning with an owned sending domain.
-3. Add pagination and move photos to dedicated object storage if the project grows beyond the course demo. Before a real launch: my own Google OAuth keys and email provider.
+1. Security: reset the database password, connect as a limited `dishboxd_app` role, and set `CLIENT_ORIGIN` on Vercel to `https://dishboxd.vercel.app` (security checklist rows 5, 15 and 26).
+2. A "forgot password" page, box deletion and a public link for public boxes; finish email-digest provisioning with an owned sending domain.
+3. Use the user's own location for Google searches (if they allow it) instead of always Angeles City.
+4. Add pagination and move photos to dedicated object storage if the project grows beyond the course demo. Before a real launch: my own Google OAuth keys and email provider.
 
 ## Security checklist
 
-The completed security checklist is kept in my private course workspace at `project/SECURITY-CHECKLIST.md`, as the course asks, with its evidence screenshots next to it. Every row is answered Yes, No or N/A with evidence.
+The completed security checklist is kept in my private course workspace at `project/SECURITY-CHECKLIST.md`, as the course asks, with its evidence screenshots next to it. Every row is answered Yes, No or N/A with evidence; all 31 rows were last re-checked against the live site on 2026-10-11.
 
 ## AI usage
 
 Claude Code (Anthropic's AI coding assistant) wrote most of the code in this project, and an AI chat tool helped me debug CORS in Week 1. What I asked for, what I kept or changed, where the AI got it wrong, and which code is mine are logged in [`AI-USAGE.md`](AI-USAGE.md).
 
-**Credit:** Claude Code generated most of the original frontend and backend, and the item-by-item reviews, categories, peso prices, fire effect, table setting, stickers, editable boxes, Friends page, likes, reposts and co-reviews. Codex implemented diner profiles, following, review/search photos and the Home/Tray redesigns, and ran the associated verification. I directed the features, manually set up external APIs and deployment, and researched problems Claude's troubleshooting did not resolve. An AI chat assistant helped with CORS; ChatGPT helped review the usage documentation. See [`AI-USAGE.md`](AI-USAGE.md) for decisions, corrections and contribution evidence.
+**Credit:** Claude Code generated most of the original frontend and backend, and the item-by-item reviews, categories, peso prices, fire effect, table setting, stickers, editable boxes, Friends page, likes, reposts and co-reviews; later also the logo and icons, username onboarding and its tour, post times, corrections to the email code at sign-in, and the uniform feed review cards. Codex implemented diner profiles, following, review/search photos and the Home/Tray redesigns, and ran the associated verification. I directed the features, manually set up external APIs and deployment, and researched problems Claude's troubleshooting did not resolve. An AI chat assistant helped with CORS; ChatGPT helped review the usage documentation. See [`AI-USAGE.md`](AI-USAGE.md) for decisions, corrections and contribution evidence.
